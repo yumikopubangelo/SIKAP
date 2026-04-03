@@ -1,0 +1,1566 @@
+openapi: 3.0.0
+info:
+  version: '1'
+  title: Login_Siswa
+  description: API untuk Aplikasi SIKAP
+servers:
+  - description: SwaggerHub API Auto Mocking
+    url: https://virtserver.swaggerhub.com/universityofsiliwang/Authentication/1
+paths:
+  /api/v1/auth/login:
+    post:
+      summary: Login multi-role (Admin, Kepsek, Wali, Piket, Siswa, Ortu)
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                role:
+                  type: string
+              required:
+                - username
+                - password
+                - role
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  token:
+                    type: string
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      username:
+                        type: string
+                      role:
+                        type: string
+                      nama:
+                        type: string
+                      siswa_id:
+                        type: integer
+                        nullable: true
+                  expires_in:
+                    type: integer
+        "401":
+          description: Unauthorized - Username atau password salah
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+  /api/v1/auth/logout:
+    post:
+      summary: Logout user (blacklist token)
+      operationId: logoutUser
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+  /api/v1/auth/refresh:
+    post:
+      summary: Refresh JWT token (before expiration)
+      operationId: refreshToken
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  token:
+                    type: string
+                  expires_in:
+                    type: integer
+  /api/v1/absensi:
+    post:
+      summary: Create absensi baru (dari RFID tap atau manual input)
+      operationId: createAbsensi
+      parameters:
+        - name: X-API-Key
+          in: header
+          schema:
+            type: string
+          required: false
+          description: API key for RFID device
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  properties:
+                    uid_card:
+                      type: string
+                    device_id:
+                      type: string
+                    timestamp:
+                      type: string
+                      format: date-time
+                  required:
+                    - uid_card
+                    - device_id
+                    - timestamp
+                - type: object
+                  properties:
+                    siswa_id:
+                      type: integer
+                    tanggal:
+                      type: string
+                      format: date
+                    waktu_sholat:
+                      type: string
+                    status:
+                      type: string
+                    keterangan:
+                      type: string
+                    verified_by:
+                      type: string
+                  required:
+                    - siswa_id
+                    - tanggal
+                    - waktu_sholat
+                    - status
+                    - verified_by
+      responses:
+        "200":
+          description: Absensi berhasil dicatat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      siswa:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                          nama:
+                            type: string
+                          nisn:
+                            type: string
+                          kelas:
+                            type: string
+                      waktu_sholat:
+                        type: string
+                      timestamp:
+                        type: string
+                        format: date-time
+                      status:
+                        type: string
+                      color:
+                        type: string
+                  message:
+                    type: string
+        "400":
+          description: Bad Request - Siswa sudah tercatat hadir untuk sesi ini
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        "404":
+          description: Not Found - Kartu tidak terdaftar
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+    get:
+      summary: Get list absensi (dengan filter & pagination)
+      operationId: getAbsensiList
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: siswa_id
+          in: query
+          schema:
+            type: integer
+          required: false
+        - name: kelas_id
+          in: query
+          schema:
+            type: integer
+          required: false
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+          required: false
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+          required: false
+        - name: waktu_sholat
+          in: query
+          schema:
+            type: string
+            enum:
+              - dzuhur
+              - ashar
+              - maghrib
+          required: false
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - tepat_waktu
+              - terlambat
+              - alpha
+              - sakit
+              - izin
+              - haid
+          required: false
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          required: false
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+          required: false
+        - name: sort
+          in: query
+          schema:
+            type: string
+            default: desc
+            enum:
+              - asc
+              - desc
+          required: false
+      responses:
+        "200":
+          description: List of absensi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        tanggal:
+                          type: string
+                          format: date
+                        waktu_sholat:
+                          type: string
+                        siswa:
+                          type: object
+                          properties:
+                            nisn:
+                              type: string
+                            nama:
+                              type: string
+                            kelas:
+                              type: string
+                        timestamp:
+                          type: string
+                          format: date-time
+                        status:
+                          type: string
+                        device:
+                          type: string
+                        keterangan:
+                          type: string
+                          nullable: true
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      total_items:
+                        type: integer
+                      total_pages:
+                        type: integer
+  /api/v1/absensi/{id}:
+    get:
+      summary: Get detail absensi by ID
+      operationId: getAbsensiById
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Detail absensi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      siswa:
+                        type: object
+                      waktu_sholat:
+                        type: string
+                      timestamp:
+                        type: string
+                        format: date-time
+                      status:
+                        type: string
+                      device:
+                        type: string
+                      keterangan:
+                        type: string
+                        nullable: true
+                      created_at:
+                        type: string
+                        format: date-time
+                      updated_at:
+                        type: string
+                        format: date-time
+                        nullable: true
+                      audit_log:
+                        type: array
+                        items:
+                          type: object
+    put:
+      summary: Update absensi (Wali Kelas / Kepsek only)
+      operationId: updateAbsensi
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                keterangan:
+                  type: string
+              required:
+                - status
+      responses:
+        "200":
+          description: Absensi berhasil diupdate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                  message:
+                    type: string
+                  audit_log_id:
+                    type: integer
+    delete:
+      summary: Delete absensi (Admin only)
+      operationId: deleteAbsensi
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Absensi berhasil dihapus
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+  /api/v1/rekapitulasi/kelas/{id_kelas}:
+    get:
+      summary: Get rekapitulasi per kelas (agregasi per siswa)
+      operationId: getRekapKelas
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id_kelas
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: bulan
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+          required: false
+        - name: tahun
+          in: query
+          schema:
+            type: integer
+          required: false
+      responses:
+        "200":
+          description: Rekapitulasi per kelas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  kelas:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      nama:
+                        type: string
+                      wali_kelas:
+                        type: string
+                      total_siswa:
+                        type: integer
+                  periode:
+                    type: object
+                    properties:
+                      bulan:
+                        type: integer
+                      tahun:
+                        type: integer
+                  summary:
+                    type: object
+                    properties:
+                      total_hadir:
+                        type: integer
+                      total_terlambat:
+                        type: integer
+                      total_alpha:
+                        type: integer
+                      rata_rata_kehadiran:
+                        type: number
+                        format: float
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        siswa:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            nisn:
+                              type: string
+                            nama:
+                              type: string
+                        total_hadir:
+                          type: integer
+                        total_terlambat:
+                          type: integer
+                        total_sakit:
+                          type: integer
+                        total_izin:
+                          type: integer
+                        total_alpha:
+                          type: integer
+                        total_haid:
+                          type: integer
+                        persentase_kehadiran:
+                          type: number
+                          format: float
+                        status_color:
+                          type: string
+                          enum:
+                            - green
+                            - yellow
+                            - red
+  /api/v1/rekapitulasi/siswa/{id_siswa}:
+    get:
+      summary: Get rekapitulasi per siswa individual
+      operationId: getRekapSiswa
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id_siswa
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: bulan
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+          required: false
+        - name: tahun
+          in: query
+          schema:
+            type: integer
+          required: false
+      responses:
+        "200":
+          description: Rekapitulasi per siswa
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  siswa:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      nisn:
+                        type: string
+                      nama:
+                        type: string
+                      kelas:
+                        type: string
+                  periode:
+                    type: object
+                    properties:
+                      bulan:
+                        type: integer
+                      tahun:
+                        type: integer
+                  summary:
+                    type: object
+                    properties:
+                      total_hadir:
+                        type: integer
+                      total_terlambat:
+                        type: integer
+                      total_sakit:
+                        type: integer
+                      total_izin:
+                        type: integer
+                      total_alpha:
+                        type: integer
+                      total_haid:
+                        type: integer
+                      persentase_kehadiran:
+                        type: number
+                        format: float
+                  trend:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tanggal:
+                          type: string
+                          format: date
+                        hadir:
+                          type: integer
+                        alpha:
+                          type: integer
+                  status_sp:
+                    type: object
+                    properties:
+                      jenis:
+                        type: string
+                        nullable: true
+                        enum:
+                          - null
+                          - SP1
+                          - SP2
+                          - SP3
+                      tanggal:
+                        type: string
+                        format: date
+                        nullable: true
+                      jumlah_alpha:
+                        type: integer
+  /api/v1/rekapitulasi/sekolah:
+    get:
+      summary: Get rekapitulasi overview seluruh sekolah (Kepsek only)
+      operationId: getRekapSekolah
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: periode
+          in: query
+          schema:
+            type: string
+            enum:
+              - bulan
+              - 6_bulan
+              - tahun_ajaran
+          required: false
+      responses:
+        "200":
+          description: Rekapitulasi sekolah
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  periode:
+                    type: string
+                  summary:
+                    type: object
+                    properties:
+                      total_siswa:
+                        type: integer
+                      rata_rata_kehadiran:
+                        type: number
+                        format: float
+                      total_hadir:
+                        type: integer
+                      total_alpha:
+                        type: integer
+                      total_sp:
+                        type: integer
+                  trend_per_bulan:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        bulan:
+                          type: string
+                        persentase:
+                          type: number
+                          format: float
+                  ranking_kelas:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        rank:
+                          type: integer
+                        kelas:
+                          type: string
+                        wali_kelas:
+                          type: string
+                        persentase:
+                          type: number
+                          format: float
+                        total_siswa:
+                          type: integer
+                        status:
+                          type: string
+                          enum:
+                            - excellent
+                            - good
+                            - poor
+  /api/v1/laporan/generate:
+    post:
+      summary: Generate laporan PDF atau Excel
+      operationId: generateLaporan
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jenis:
+                  type: string
+                  enum:
+                    - rekap_kelas
+                    - rekap_siswa
+                    - rekap_sekolah
+                kelas_id:
+                  type: integer
+                  nullable: true
+                siswa_id:
+                  type: integer
+                  nullable: true
+                start_date:
+                  type: string
+                  format: date
+                end_date:
+                  type: string
+                  format: date
+                format:
+                  type: string
+                  enum:
+                    - pdf
+                    - excel
+                preview:
+                  type: boolean
+              required:
+                - jenis
+                - start_date
+                - end_date
+                - format
+                - preview
+      responses:
+        "200":
+          description: Laporan generated or preview data
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                      laporan_id:
+                        type: integer
+                      download_url:
+                        type: string
+                      filename:
+                        type: string
+                      file_size:
+                        type: string
+                      generated_at:
+                        type: string
+                        format: date-time
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                      preview_data:
+                        type: object
+                        properties:
+                          kelas:
+                            type: string
+                          periode:
+                            type: string
+                          siswa:
+                            type: array
+                            items:
+                              type: object
+                          summary:
+                            type: object
+  /api/v1/laporan/{id}/download:
+    get:
+      summary: Download laporan yang sudah di-generate
+      operationId: downloadLaporan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: File stream (PDF atau Excel)
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+  /api/v1/notifikasi:
+    get:
+      summary: Get list notifikasi user
+      operationId: getNotifikasiList
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - unread
+              - read
+              - all
+          required: false
+        - name: tipe
+          in: query
+          schema:
+            type: string
+            enum:
+              - sp
+              - absensi
+              - sistem
+          required: false
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+          required: false
+      responses:
+        "200":
+          description: List of notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  unread_count:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        judul:
+                          type: string
+                        isi:
+                          type: string
+                        tipe:
+                          type: string
+                        status_baca:
+                          type: boolean
+                        created_at:
+                          type: string
+                          format: date-time
+                        link:
+                          type: string
+                          nullable: true
+  /api/v1/notifikasi/{id}/read:
+    put:
+      summary: Mark notifikasi as read
+      operationId: markNotifikasiRead
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Notifikasi marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+  /api/v1/notifikasi/{id}:
+    delete:
+      summary: Delete notifikasi
+      operationId: deleteNotifikasi
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Notifikasi deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+  /api/v1/users:
+    post:
+      summary: Create user baru (Admin only)
+      operationId: createUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                role:
+                  type: string
+                email:
+                  type: string
+                siswa_id:
+                  type: integer
+                  nullable: true
+                orangtua_id:
+                  type: integer
+                  nullable: true
+              required:
+                - username
+                - password
+                - role
+                - email
+      responses:
+        "201":
+          description: User berhasil dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      username:
+                        type: string
+                      role:
+                        type: string
+                      email:
+                        type: string
+                  message:
+                    type: string
+        "400":
+          description: Username sudah digunakan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+    get:
+      summary: Get list users (Admin only)
+      operationId: getUserList
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: role
+          in: query
+          schema:
+            type: string
+          required: false
+        - name: search
+          in: query
+          schema:
+            type: string
+          required: false
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          required: false
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+          required: false
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        username:
+                          type: string
+                        email:
+                          type: string
+                        role:
+                          type: string
+                        status:
+                          type: string
+                        created_at:
+                          type: string
+                          format: date-time
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      total_items:
+                        type: integer
+                      total_pages:
+                        type: integer
+  /api/v1/users/{id}:
+    get:
+      summary: Get detail user by ID
+      operationId: getUserById
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      username:
+                        type: string
+                      email:
+                        type: string
+                      role:
+                        type: string
+                      status:
+                        type: string
+                      siswa:
+                        type: object
+                        nullable: true
+                        properties:
+                          nisn:
+                            type: string
+                          nama:
+                            type: string
+                          kelas:
+                            type: string
+    put:
+      summary: Update user (Admin only)
+      operationId: updateUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+                  nullable: true
+                status:
+                  type: string
+                  enum:
+                    - aktif
+                    - nonaktif
+              required:
+                - email
+                - status
+      responses:
+        "200":
+          description: User berhasil diupdate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                  message:
+                    type: string
+    delete:
+      summary: Delete user (Admin only)
+      operationId: deleteUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User berhasil dihapus
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+  /api/v1/kelas:
+    get:
+      summary: Get list kelas
+      operationId: getKelasList
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List kelas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        nama_kelas:
+                          type: string
+                        tahun_ajaran:
+                          type: string
+                        wali_kelas:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            nama:
+                              type: string
+                        jumlah_siswa:
+                          type: integer
+    post:
+      summary: Create kelas baru (Admin only)
+      operationId: createKelas
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nama_kelas:
+                  type: string
+                tahun_ajaran:
+                  type: string
+                wali_kelas_id:
+                  type: integer
+              required:
+                - nama_kelas
+                - tahun_ajaran
+                - wali_kelas_id
+      responses:
+        "201":
+          description: Kelas berhasil dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                  message:
+                    type: string
+  /api/v1/siswa:
+    get:
+      summary: Get list siswa (dengan filter)
+      operationId: getSiswaList
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: kelas_id
+          in: query
+          schema:
+            type: integer
+          required: false
+        - name: search
+          in: query
+          schema:
+            type: string
+          required: false
+        - name: page
+          in: query
+          schema:
+            type: integer
+          required: false
+        - name: limit
+          in: query
+          schema:
+            type: integer
+          required: false
+      responses:
+        "200":
+          description: List siswa
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        nisn:
+                          type: string
+                        nama:
+                          type: string
+                        kelas:
+                          type: string
+                        id_card_uid:
+                          type: string
+                        no_telp_ortu:
+                          type: string
+                        status_kartu:
+                          type: string
+                          enum:
+                            - terdaftar
+                            - belum
+    post:
+      summary: Create siswa baru (Admin only)
+      operationId: createSiswa
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nisn:
+                  type: string
+                nama:
+                  type: string
+                kelas_id:
+                  type: integer
+                alamat:
+                  type: string
+                no_telp_ortu:
+                  type: string
+              required:
+                - nisn
+                - nama
+                - kelas_id
+                - alamat
+                - no_telp_ortu
+      responses:
+        "201":
+          description: Siswa berhasil ditambahkan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                  message:
+                    type: string
+  /api/v1/waktu-sholat:
+    get:
+      summary: Get jadwal waktu sholat (Adzan, Iqamah, Selesai)
+      operationId: getWaktuSholatList
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List waktu sholat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        nama_sholat:
+                          type: string
+                        waktu_adzan:
+                          type: string
+                        waktu_iqamah:
+                          type: string
+                        waktu_selesai:
+                          type: string
+    put:
+      summary: Update waktu sholat (Admin only)
+      operationId: updateWaktuSholat
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                waktu_adzan:
+                  type: string
+                waktu_iqamah:
+                  type: string
+                waktu_selesai:
+                  type: string
+              required:
+                - waktu_adzan
+                - waktu_iqamah
+                - waktu_selesai
+      responses:
+        "200":
+          description: Waktu sholat berhasil diupdate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                  message:
+                    type: string
+  /api/v1/perangkat:
+    get:
+      summary: Get list perangkat (ESP8266 devices)
+      operationId: getPerangkatList
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List perangkat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        device_id:
+                          type: string
+                        nama_perangkat:
+                          type: string
+                        lokasi:
+                          type: string
+                        status:
+                          type: string
+                          enum:
+                            - online
+                            - offline
+                        last_ping:
+                          type: string
+                          format: date-time
+                        signal_strength:
+                          type: integer
+  /api/v1/perangkat/test-connection/{id}:
+    post:
+      summary: Test koneksi device (ping)
+      operationId: testPerangkatConnection
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Device connection test result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  latency:
+                    type: integer
+                  message:
+                    type: string
+  /api/v1/surat-peringatan:
+    get:
+      summary: Get list Surat Peringatan
+      operationId: getSuratPeringatanList
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: siswa_id
+          in: query
+          schema:
+            type: integer
+          required: false
+      responses:
+        "200":
+          description: List Surat Peringatan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        siswa:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            nama:
+                              type: string
+                        jenis_sp:
+                          type: string
+                        tanggal_sp:
+                          type: string
+                          format: date
+                        periode_pelanggaran:
+                          type: object
+                          properties:
+                            start:
+                              type: string
+                              format: date
+                            end:
+                              type: string
+                              format: date
+                        jumlah_alpha:
+                          type: integer
+                        status:
+                          type: string
+                          enum:
+                            - belum_terkirim
+                            - terkirim
+                            - dibaca
+                        download_url:
+                          type: string
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
