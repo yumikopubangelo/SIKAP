@@ -47,6 +47,29 @@ services:
       - sikap-net
 
   # --------------------------------------------------------------------------
+  # PHPMYADMIN - Database Management UI (opsional)
+  # --------------------------------------------------------------------------
+  phpmyadmin:
+    image: phpmyadmin:5.2
+    container_name: sikap-phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: ${DB_USER:-sikap_user}
+      PMA_PASSWORD: ${DB_PASSWORD:-sikap_pass_2025}
+      UPLOAD_LIMIT: 64M
+    ports:
+      - "8080:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - devtools
+    networks:
+      - sikap-net
+
+  # --------------------------------------------------------------------------
   # BACKEND - Flask API (Waitress WSGI)
   # --------------------------------------------------------------------------
   backend:
