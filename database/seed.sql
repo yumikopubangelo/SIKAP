@@ -29,3 +29,22 @@ ON DUPLICATE KEY UPDATE
     email = VALUES(email),
     no_telp = VALUES(no_telp),
     role = VALUES(role);
+
+INSERT INTO siswa (id_user, nisn, nama, jenis_kelamin, alamat, no_telp_ortu, id_card, id_kelas) VALUES
+    (NULL, '1000000001', 'Siswa Import Demo', 'L', 'Tasikmalaya', '081300000001', 'RFID-DEMO-001', NULL),
+    (NULL, '1000000002', 'Siswa Kandidat Kedua', 'P', 'Tasikmalaya', '081300000002', 'RFID-DEMO-002', NULL)
+ON DUPLICATE KEY UPDATE
+    nama = VALUES(nama),
+    jenis_kelamin = VALUES(jenis_kelamin),
+    alamat = VALUES(alamat),
+    no_telp_ortu = VALUES(no_telp_ortu),
+    id_card = VALUES(id_card),
+    id_kelas = VALUES(id_kelas);
+
+INSERT INTO perangkat (device_id, nama_device, lokasi, api_key, status) VALUES
+    ('ESP8266_MASJID_01', 'RFID Reader Masjid 1', 'Masjid Sekolah', 'device-key-demo-001', 'online')
+ON DUPLICATE KEY UPDATE
+    nama_device = VALUES(nama_device),
+    lokasi = VALUES(lokasi),
+    api_key = VALUES(api_key),
+    status = VALUES(status);

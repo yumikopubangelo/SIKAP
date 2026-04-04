@@ -40,7 +40,7 @@ CREATE TABLE kelas (
 
 CREATE TABLE siswa (
     id_siswa INT AUTO_INCREMENT PRIMARY KEY,
-    id_user INT NOT NULL UNIQUE,
+    id_user INT NULL UNIQUE,
     nisn VARCHAR(20) NOT NULL UNIQUE,
     nama VARCHAR(100) NOT NULL,
     jenis_kelamin VARCHAR(10),
