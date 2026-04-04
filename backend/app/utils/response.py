@@ -1,13 +1,14 @@
 from flask import jsonify
 
 
-def success_response(data=None, message="OK", status_code=200):
+def success_response(data=None, message="OK", status_code=200, **extra_fields):
     payload = {
         "success": True,
         "message": message,
     }
     if data is not None:
         payload["data"] = data
+    payload.update(extra_fields)
     return jsonify(payload), status_code
 
 
