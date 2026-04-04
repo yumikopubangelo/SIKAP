@@ -17,7 +17,7 @@ class Siswa(db.Model):
     id_user = db.Column(
         db.Integer,
         db.ForeignKey("users.id_user", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         unique=True,
     )
     nisn = db.Column(db.String(20), nullable=False, unique=True)
