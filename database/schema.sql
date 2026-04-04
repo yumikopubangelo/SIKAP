@@ -145,4 +145,21 @@ CREATE TABLE audit_log (
     )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE notifikasi (
+    id_notifikasi INT AUTO_INCREMENT PRIMARY KEY,
+    id_user INT NOT NULL,
+    judul VARCHAR(100) NOT NULL,
+    pesan TEXT NOT NULL,
+    tipe VARCHAR(50) NOT NULL DEFAULT 'umum',
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    read_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_notifikasi_id_user
+        FOREIGN KEY (id_user) REFERENCES users(id_user)
+        ON DELETE CASCADE,
+    CONSTRAINT ck_notifikasi_tipe_valid CHECK (
+        tipe IN ('umum', 'absensi', 'peringatan', 'informasi', 'sistem')
+    )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
