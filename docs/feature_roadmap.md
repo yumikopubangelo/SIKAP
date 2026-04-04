@@ -201,7 +201,7 @@
 
 ### Sprint 2 Demo Checklist
 - [ ] Guru piket bisa manual input absensi
-- [ ] Wali kelas bisa generate laporan PDF/Excel
+- [x] Wali kelas bisa generate laporan PDF/Excel
 - [ ] Admin bisa CRUD user
 - [ ] Notifikasi basic berfungsi
 - [ ] Integration test: frontend <-> backend semua flow
