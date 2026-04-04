@@ -27,8 +27,8 @@
 | **PIC** | Backend |
 | **Prioritas** | MUST HAVE |
 | **Deskripsi** | Setup Flask, SQLAlchemy, MySQL, migrations |
-| **Detail** | Buat 6 core tables: `users`, `siswa`, `kelas`, `absensi`, `waktu_sholat`, `sesi_sholat` |
-| **Output** | Database running, models ready, migrations applied |
+| **Detail** | Ikuti `docs/design/struktur_table.md` untuk tabel inti: `users`, `kelas`, `siswa`, `waktu_sholat`, `sesi_sholat`, `absensi`, plus referensi `status_absensi` dan `perangkat` agar relasi inti siap dipakai |
+| **Output** | Database running, models ready, initial migration + schema SQL + seed data dasar applied |
 | **Dependency** | - |
 
 ### BE-02: Authentication (JWT)

@@ -1,19 +1,39 @@
-# Model imports will be added here as they are implemented
-# For now, this file is empty to avoid import errors
+from ..extensions import db
 
-# Example of how to import models when they are created:
-# from .user import User
-# from .guru import Guru
-# from .siswa import Siswa
-# from .orangtua import OrangTua
-# from .kelas import Kelas
-# from .absensi import Absensi
-# from .audit_log import AuditLog
-# from .notifikasi import Notifikasi
-# from .perangkat import Perangkat
-# from .sekolah import Sekolah
-# from .surat_peringatan import SuratPeringatan
-# from .waktu_sholat import WaktuSholat
 
-# Export models for easier importing
-__all__ = []
+def load_models() -> None:
+    from .absensi import Absensi, StatusAbsensi
+    from .kelas import Kelas
+    from .perangkat import Perangkat
+    from .siswa import Siswa
+    from .user import User
+    from .waktu_sholat import SesiSholat, WaktuSholat
+
+    globals().update(
+        {
+            "User": User,
+            "Kelas": Kelas,
+            "Siswa": Siswa,
+            "WaktuSholat": WaktuSholat,
+            "SesiSholat": SesiSholat,
+            "StatusAbsensi": StatusAbsensi,
+            "Perangkat": Perangkat,
+            "Absensi": Absensi,
+        }
+    )
+
+
+load_models()
+
+__all__ = [
+    "db",
+    "User",
+    "Kelas",
+    "Siswa",
+    "WaktuSholat",
+    "SesiSholat",
+    "StatusAbsensi",
+    "Perangkat",
+    "Absensi",
+    "load_models",
+]
