@@ -38,3 +38,13 @@ class Kelas(db.Model):
 
     def __repr__(self) -> str:
         return f"<Kelas {self.nama_kelas}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id_kelas": self.id_kelas,
+            "nama_kelas": self.nama_kelas,
+            "tingkat": self.tingkat,
+            "jurusan": self.jurusan,
+            "id_wali": self.id_wali,
+            "tahun_ajaran": self.tahun_ajaran,
+        }

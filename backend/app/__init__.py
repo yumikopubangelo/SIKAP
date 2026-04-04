@@ -11,7 +11,7 @@ from .utils.response import error_response
 
 load_dotenv()
 
-from config import DevelopmentConfig, config_by_name
+from config import DevelopmentConfig, _build_database_uri, config_by_name
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -19,6 +19,10 @@ def create_app(config_name: str | None = None) -> Flask:
 
     selected_config = config_name or os.getenv("FLASK_ENV", "development")
     app.config.from_object(config_by_name.get(selected_config, DevelopmentConfig))
+    if selected_config == "testing":
+        app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("TEST_DATABASE_URL", "sqlite:///test.db")
+    else:
+        app.config["SQLALCHEMY_DATABASE_URI"] = _build_database_uri()
 
     register_extensions(app)
     register_routes(app)
