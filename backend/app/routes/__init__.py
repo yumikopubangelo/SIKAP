@@ -4,6 +4,7 @@ from .absensi import absensi_bp
 from .auth import auth_bp
 from .dashboard import dashboard_bp
 from .laporan import laporan_bp
+from .notifikasi import notifikasi_bp
 
 
 def register_blueprints(app: Flask) -> None:
@@ -11,3 +12,4 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(absensi_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(laporan_bp)
+    app.register_blueprint(notifikasi_bp)

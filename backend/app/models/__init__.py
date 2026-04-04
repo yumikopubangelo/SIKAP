@@ -6,6 +6,7 @@ def load_models() -> None:
     from .audit_log import AuditLog
     from .kelas import Kelas
     from .laporan import Laporan
+    from .notifikasi import Notifikasi
     from .perangkat import Perangkat
     from .siswa import Siswa
     from .user import User
@@ -23,6 +24,7 @@ def load_models() -> None:
             "Absensi": Absensi,
             "AuditLog": AuditLog,
             "Laporan": Laporan,
+            "Notifikasi": Notifikasi,
         }
     )
 
@@ -41,5 +43,6 @@ __all__ = [
     "Absensi",
     "AuditLog",
     "Laporan",
+    "Notifikasi",
     "load_models",
 ]
