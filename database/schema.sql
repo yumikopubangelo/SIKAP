@@ -2,6 +2,7 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS absensi;
+DROP TABLE IF EXISTS audit_log;
 DROP TABLE IF EXISTS perangkat;
 DROP TABLE IF EXISTS status_absensi;
 DROP TABLE IF EXISTS sesi_sholat;
@@ -40,7 +41,7 @@ CREATE TABLE kelas (
 
 CREATE TABLE siswa (
     id_siswa INT AUTO_INCREMENT PRIMARY KEY,
-    id_user INT NOT NULL UNIQUE,
+    id_user INT NULL UNIQUE,
     nisn VARCHAR(20) NOT NULL UNIQUE,
     nama VARCHAR(100) NOT NULL,
     jenis_kelamin VARCHAR(10),
@@ -124,6 +125,23 @@ CREATE TABLE absensi (
     CONSTRAINT uq_absensi_id_siswa_id_sesi UNIQUE (id_siswa, id_sesi),
     CONSTRAINT ck_absensi_status_valid CHECK (
         status IN ('tepat_waktu', 'terlambat', 'alpha', 'haid', 'izin', 'sakit')
+    )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE audit_log (
+    id_log INT AUTO_INCREMENT PRIMARY KEY,
+    id_user INT NULL,
+    aksi VARCHAR(10) NOT NULL,
+    tabel VARCHAR(50) NOT NULL,
+    record_pk VARCHAR(50) NOT NULL,
+    `timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    old_value TEXT NULL,
+    new_value TEXT NULL,
+    CONSTRAINT fk_audit_log_id_user
+        FOREIGN KEY (id_user) REFERENCES users(id_user)
+        ON DELETE SET NULL,
+    CONSTRAINT ck_audit_log_aksi_valid CHECK (
+        aksi IN ('INSERT', 'UPDATE', 'DELETE')
     )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
