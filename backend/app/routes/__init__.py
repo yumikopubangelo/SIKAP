@@ -9,6 +9,13 @@ from .rekapitulasi import rekapitulasi_bp
 from .users import users_bp
 from .izin import izin_bp
 from .sengketa import sengketa_bp
+# Batch Master & SP
+from .kelas import kelas_bp
+from .siswa import siswa_bp
+from .perangkat import perangkat_bp
+from .sekolah import sekolah_bp
+from .waktu_sholat import waktu_sholat_bp
+from .surat_peringatan import sp_bp
 
 
 def register_blueprints(app: Flask) -> None:
@@ -21,3 +28,10 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(users_bp)
     app.register_blueprint(izin_bp)
     app.register_blueprint(sengketa_bp)
+    
+    app.register_blueprint(kelas_bp)
+    app.register_blueprint(siswa_bp)
+    app.register_blueprint(perangkat_bp)
+    app.register_blueprint(sekolah_bp)
+    app.register_blueprint(waktu_sholat_bp)
+    app.register_blueprint(sp_bp)
