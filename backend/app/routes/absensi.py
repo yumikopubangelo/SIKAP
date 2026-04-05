@@ -1,69 +1,67 @@
 from flask import Blueprint, request
 
-from ..middleware.auth_middleware import auth_required
-from ..services.absensi_service import create_rfid_absensi, get_absensi_detail, list_absensi
+from ..middleware.auth_middleware import inject_current_user
+from ..services.absensi_service import (
+    AbsensiServiceError,
+    create_manual_absensi,
+    update_absensi,
+)
 from ..utils.response import error_response, success_response
-from ..utils.validators import validate_absensi_query_params, validate_rfid_absensi_payload
+from ..utils.validators import (
+    validate_absensi_update_payload,
+    validate_manual_absensi_payload,
+)
 
 
 absensi_bp = Blueprint("absensi", __name__, url_prefix="/api/v1/absensi")
 
 
-@absensi_bp.post("")
-def create_absensi():
-    payload, errors = validate_rfid_absensi_payload(request.get_json(silent=True))
-    if errors:
-        return error_response("Payload absensi tidak valid.", 400, errors=errors)
+def _ensure_guru_piket(current_user):
+    if current_user.role != "guru_piket":
+        return error_response("Hanya guru piket yang dapat mengakses endpoint ini.", 403)
+    return None
 
-    api_key = request.headers.get("X-API-Key")
-    if not api_key:
-        return error_response("X-API-Key wajib diisi untuk perangkat RFID.", 401)
+
+@absensi_bp.post("/manual")
+@inject_current_user
+def create_manual(current_user):
+    forbidden_response = _ensure_guru_piket(current_user)
+    if forbidden_response is not None:
+        return forbidden_response
+
+    payload, errors = validate_manual_absensi_payload(request.get_json(silent=True))
+    if errors:
+        return error_response("Payload absensi manual tidak valid.", 400, errors=errors)
 
     try:
-        absensi = create_rfid_absensi(
-            uid_card=payload["uid_card"],
-            device_id=payload["device_id"],
-            api_key=api_key,
-            timestamp=payload["timestamp"],
-        )
-    except PermissionError as exc:
-        return error_response(str(exc), 401)
-    except LookupError as exc:
-        return error_response(str(exc), 404)
-    except ValueError as exc:
-        return error_response(str(exc), 400)
+        data, audit_log_id = create_manual_absensi(payload, current_user)
+    except AbsensiServiceError as exc:
+        return error_response(exc.message, exc.status_code, errors=exc.errors)
 
     return success_response(
-        data=absensi.to_dict(),
-        message="Absensi berhasil dicatat.",
+        data=data | {"audit_log_id": audit_log_id},
+        message="Absensi manual berhasil dicatat.",
         status_code=201,
     )
 
 
-@absensi_bp.get("")
-@auth_required
-def get_absensi_list():
-    filters, errors = validate_absensi_query_params(request.args)
+@absensi_bp.put("/<int:absensi_id>")
+@inject_current_user
+def update_absensi_route(current_user, absensi_id: int):
+    forbidden_response = _ensure_guru_piket(current_user)
+    if forbidden_response is not None:
+        return forbidden_response
+
+    payload, errors = validate_absensi_update_payload(request.get_json(silent=True))
     if errors:
-        return error_response("Query absensi tidak valid.", 400, errors=errors)
+        return error_response("Payload update absensi tidak valid.", 400, errors=errors)
 
-    result = list_absensi(filters)
-    return success_response(
-        data=result["items"],
-        message="Data absensi berhasil diambil.",
-        status_code=200,
-        pagination=result["pagination"],
-    )
-
-
-@absensi_bp.get("/<int:absensi_id>")
-@auth_required
-def get_absensi_by_id(absensi_id: int):
-    absensi = get_absensi_detail(absensi_id)
-    if absensi is None:
-        return error_response("Data absensi tidak ditemukan.", 404)
+    try:
+        data, audit_log_id = update_absensi(absensi_id, payload, current_user)
+    except AbsensiServiceError as exc:
+        return error_response(exc.message, exc.status_code, errors=exc.errors)
 
     return success_response(
-        data=absensi.to_dict(),
-        message="Detail absensi berhasil diambil.",
+        data=data | {"audit_log_id": audit_log_id},
+        message="Absensi berhasil diperbarui.",
     )

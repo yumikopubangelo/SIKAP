@@ -385,4 +385,4 @@ SMK Bina Putra Nusantara · Universitas Siliwangi — Program Studi Sistem Infor
 
 ---
 
-_Dibuat dengan ❤️ oleh Kelompok 1 — SI UNSIL 2025_
+_Dibuat oleh Kelompok 1 — SI UNSIL 2025_

@@ -72,6 +72,7 @@ def register_shell_context(app: Flask) -> None:
     def shell_context():
         from .models import (
             Absensi,
+            AuditLog,
             Kelas,
             Perangkat,
             SesiSholat,
@@ -91,6 +92,7 @@ def register_shell_context(app: Flask) -> None:
             "StatusAbsensi": StatusAbsensi,
             "Perangkat": Perangkat,
             "Absensi": Absensi,
+            "AuditLog": AuditLog,
         }
 
 
