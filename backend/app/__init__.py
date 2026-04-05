@@ -5,7 +5,6 @@ from flask import Flask, jsonify
 
 from .extensions import cors, db, jwt, migrate
 from .routes import register_blueprints
-from .services.auth_service import is_token_revoked
 from .utils.response import error_response
 
 
@@ -93,6 +92,8 @@ def register_shell_context(app: Flask) -> None:
 def register_jwt_handlers() -> None:
     @jwt.token_in_blocklist_loader
     def token_in_blocklist_callback(_jwt_header, jwt_payload):
+        from .services.auth_service import is_token_revoked
+
         return is_token_revoked(jwt_payload)
 
     @jwt.invalid_token_loader

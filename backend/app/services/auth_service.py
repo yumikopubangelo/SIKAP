@@ -4,6 +4,13 @@ from ..extensions import db, token_blocklist
 from ..models import User
 
 
+def find_student_candidate(identifier: str):
+    return User.query.filter(
+        ((User.username == identifier) | (User.email == identifier))
+        & (User.role == "siswa")
+    ).first()
+
+
 def authenticate_user(username: str, password: str):
     user = User.query.filter(
         (User.username == username) | (User.email == username)

@@ -1,6 +1,18 @@
 from ..extensions import db
 
 
+_MODEL_EXPORTS = {
+    "Absensi": ".absensi",
+    "StatusAbsensi": ".absensi",
+    "Kelas": ".kelas",
+    "Perangkat": ".perangkat",
+    "Siswa": ".siswa",
+    "User": ".user",
+    "SesiSholat": ".waktu_sholat",
+    "WaktuSholat": ".waktu_sholat",
+}
+
+
 def load_models() -> None:
     from .absensi import Absensi, StatusAbsensi
     from .kelas import Kelas
@@ -22,8 +34,13 @@ def load_models() -> None:
         }
     )
 
+def __getattr__(name: str):
+    module_name = _MODEL_EXPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
-load_models()
+    load_models()
+    return globals()[name]
 
 __all__ = [
     "db",
