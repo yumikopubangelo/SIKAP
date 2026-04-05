@@ -17,7 +17,7 @@ class Siswa(db.Model):
     id_user = db.Column(
         db.Integer,
         db.ForeignKey("users.id_user", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         unique=True,
     )
     nisn = db.Column(db.String(20), nullable=False, unique=True)
@@ -43,3 +43,17 @@ class Siswa(db.Model):
 
     def __repr__(self) -> str:
         return f"<Siswa {self.nisn}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id_siswa": self.id_siswa,
+            "id_user": self.id_user,
+            "nisn": self.nisn,
+            "nama": self.nama,
+            "jenis_kelamin": self.jenis_kelamin,
+            "alamat": self.alamat,
+            "no_telp_ortu": self.no_telp_ortu,
+            "id_card": self.id_card,
+            "id_kelas": self.id_kelas,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }

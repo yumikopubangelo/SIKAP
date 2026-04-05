@@ -33,3 +33,13 @@ class Perangkat(db.Model):
 
     def __repr__(self) -> str:
         return f"<Perangkat {self.device_id}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "device_id": self.device_id,
+            "nama_device": self.nama_device,
+            "lokasi": self.lokasi,
+            "status": self.status,
+            "last_ping": self.last_ping.isoformat() if self.last_ping else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }

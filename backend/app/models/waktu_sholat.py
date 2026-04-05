@@ -18,6 +18,15 @@ class WaktuSholat(db.Model):
     def __repr__(self) -> str:
         return f"<WaktuSholat {self.nama_sholat}>"
 
+    def to_dict(self) -> dict:
+        return {
+            "id_waktu": self.id_waktu,
+            "nama_sholat": self.nama_sholat,
+            "waktu_adzan": self.waktu_adzan.isoformat() if self.waktu_adzan else None,
+            "waktu_iqamah": self.waktu_iqamah.isoformat() if self.waktu_iqamah else None,
+            "waktu_selesai": self.waktu_selesai.isoformat() if self.waktu_selesai else None,
+        }
+
 
 class SesiSholat(db.Model):
     __tablename__ = "sesi_sholat"
@@ -51,3 +60,12 @@ class SesiSholat(db.Model):
 
     def __repr__(self) -> str:
         return f"<SesiSholat {self.id_sesi}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id_sesi": self.id_sesi,
+            "id_waktu": self.id_waktu,
+            "tanggal": self.tanggal.isoformat() if self.tanggal else None,
+            "status": self.status,
+            "waktu_sholat": self.waktu_sholat.to_dict() if self.waktu_sholat else None,
+        }
