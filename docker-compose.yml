@@ -115,7 +115,7 @@ services:
     container_name: sikap-frontend
     restart: unless-stopped
     environment:
-      VITE_API_URL: http://localhost:5000
+      VITE_API_URL: /api/v1
       VITE_MQTT_WS_URL: ws://localhost:9001
     ports:
       - "5173:5173"

@@ -23,7 +23,7 @@ body {
 }
 
 .login-card {
-  width: min(100%, 420px);
+  width: min(100%, 460px);
   background: #ffffff;
   border: 1px solid #d9e3ea;
   border-radius: 16px;
@@ -37,15 +37,49 @@ h1 {
 }
 
 .subtitle {
-  margin: 0.5rem 0 1.25rem;
+  margin: 0.5rem 0 1rem;
   color: #4c6070;
   font-size: 0.95rem;
 }
 
-.login-form {
+.mode-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.tab {
+  margin: 0;
+  border: 1px solid #c5d2dc;
+  background: #fff;
+  color: #244257;
+  font-weight: 600;
+}
+
+.tab.active {
+  background: #0d5ca2;
+  color: #fff;
+  border-color: #0d5ca2;
+}
+
+.login-form,
+.profile-card {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+}
+
+.profile-card {
+  padding: 0.75rem;
+  border-radius: 10px;
+  border: 1px solid #d7e2ea;
+  background: #f8fcff;
+  margin-bottom: 1rem;
+}
+
+.profile-card p {
+  margin: 0;
 }
 
 label {
@@ -85,7 +119,7 @@ button:disabled {
 }
 
 .alert {
-  margin: 0.4rem 0 0;
+  margin: 0.75rem 0 0;
   padding: 0.6rem;
   border-radius: 10px;
   font-size: 0.9rem;

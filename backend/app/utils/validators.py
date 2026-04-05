@@ -1,6 +1,7 @@
 from datetime import date, datetime
 
 from ..models.absensi import ABSENSI_STATUS_VALUES
+from ..models.user import ROLE_VALUES
 
 
 def validate_login_payload(payload):
@@ -100,4 +101,87 @@ def validate_absensi_update_payload(payload):
     return {
         "status": status,
         "keterangan": keterangan,
+    }, None
+
+
+ROLE_ALIASES = {
+    "wali": "wali_kelas",
+    "piket": "guru_piket",
+    "ortu": "orangtua",
+}
+
+
+def _normalize_role(role: str) -> str:
+    cleaned = (role or "").strip().lower()
+    return ROLE_ALIASES.get(cleaned, cleaned)
+
+
+def validate_student_lookup_params(params):
+    params = params or {}
+    nisn = (params.get("nisn") or "").strip()
+    id_card = (params.get("id_card") or "").strip()
+
+    errors = {}
+    if not nisn and not id_card:
+        errors["query"] = "Minimal isi salah satu: nisn atau id_card."
+
+    if errors:
+        return None, errors
+
+    return {
+        "nisn": nisn or None,
+        "id_card": id_card or None,
+    }, None
+
+
+def validate_register_payload(payload):
+    payload = payload or {}
+
+    mode = (payload.get("mode") or "manual").strip().lower()
+    username = (payload.get("username") or "").strip()
+    password = payload.get("password") or ""
+    full_name = (payload.get("full_name") or "").strip()
+    email = (payload.get("email") or "").strip() or None
+    no_telp = (payload.get("no_telp") or "").strip() or None
+    role = _normalize_role(payload.get("role") or "siswa")
+    nisn = (payload.get("nisn") or "").strip() or None
+    id_card = (payload.get("id_card") or "").strip() or None
+
+    errors = {}
+    if mode not in ("manual", "school_db"):
+        errors["mode"] = "Mode registrasi tidak valid."
+
+    if not username:
+        errors["username"] = "Username wajib diisi."
+
+    if not password:
+        errors["password"] = "Password wajib diisi."
+    elif len(password) < 8:
+        errors["password"] = "Password minimal 8 karakter."
+
+    if role not in ROLE_VALUES:
+        errors["role"] = "Role tidak valid."
+
+    if mode == "manual" and not full_name:
+        errors["full_name"] = "Nama lengkap wajib diisi untuk mode manual."
+
+    if mode == "school_db" and not nisn and not id_card:
+        errors["student_lookup"] = "Mode school_db wajib menyertakan nisn atau id_card."
+
+    if role == "siswa" and not nisn and not id_card:
+        errors["student_lookup"] = "Role siswa wajib menyertakan nisn atau id_card."
+
+    if errors:
+        return None, errors
+
+    return {
+        "mode": mode,
+        "username": username,
+        "password": password,
+        "full_name": full_name if full_name else username,
+        "email": email,
+        "no_telp": no_telp,
+        "role": role,
+        "nisn": nisn,
+        "id_card": id_card,
     }, None
