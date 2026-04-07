@@ -299,6 +299,36 @@ button:disabled {
   padding: 1rem 1rem 1.1rem;
 }
 
+.laporan-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  align-items: end;
+}
+
+.laporan-form-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.laporan-form-grid button {
+  margin-top: 0;
+}
+
+.laporan-actions {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.laporan-actions button {
+  width: auto;
+  margin-top: 0;
+}
+
 .panel-header {
   display: flex;
   align-items: flex-start;
@@ -361,6 +391,10 @@ tbody tr:hover {
   }
 
   .identity-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .laporan-form-grid {
     grid-template-columns: 1fr;
   }
 }

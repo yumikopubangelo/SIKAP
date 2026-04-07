@@ -232,6 +232,7 @@ function DashboardPage({
   error,
   successMessage,
   onRefresh,
+  onOpenLaporan,
   onLogout,
 }) {
   const cards = dashboardData?.cards || []
@@ -257,6 +258,9 @@ function DashboardPage({
 
           <div className="dashboard-actions">
             <span className="role-pill">{roleLabels[authUser.role] || authUser.role}</span>
+            <button type="button" className="ghost-button" onClick={onOpenLaporan}>
+              Generate Laporan
+            </button>
             <button type="button" className="ghost-button" onClick={onRefresh}>
               Muat Ulang
             </button>
@@ -356,6 +360,136 @@ function DashboardPage({
   )
 }
 
+function LaporanPage({
+  loading,
+  error,
+  successMessage,
+  laporanForm,
+  generatedLaporan,
+  onFormChange,
+  onSubmit,
+  onDownload,
+  onBackToDashboard,
+}) {
+  return (
+    <main className="dashboard-page">
+      <section className="dashboard-shell">
+        <header className="dashboard-hero">
+          <div>
+            <p className="eyebrow">F022</p>
+            <h1>Generate Laporan</h1>
+            <p className="subtitle dashboard-subtitle">
+              Pilih jenis laporan, periode, dan format file untuk generate laporan
+              PDF/Excel.
+            </p>
+          </div>
+          <div className="dashboard-actions">
+            <button type="button" className="ghost-button" onClick={onBackToDashboard}>
+              Kembali ke Dashboard
+            </button>
+          </div>
+        </header>
+
+        <section className="dashboard-panel">
+          <form onSubmit={onSubmit} className="laporan-form-grid">
+            <div>
+              <label htmlFor="jenis">Jenis Laporan</label>
+              <select
+                id="jenis"
+                name="jenis"
+                value={laporanForm.jenis}
+                onChange={onFormChange}
+              >
+                <option value="kelas">Kelas</option>
+                <option value="siswa">Siswa</option>
+                <option value="sekolah">Sekolah</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="filterId">
+                {laporanForm.jenis === 'siswa' ? 'ID Siswa' : 'ID Kelas'}
+              </label>
+              <input
+                id="filterId"
+                name="filterId"
+                type="number"
+                min="1"
+                value={laporanForm.filterId}
+                onChange={onFormChange}
+                placeholder={
+                  laporanForm.jenis === 'sekolah'
+                    ? 'Tidak wajib untuk sekolah'
+                    : 'Masukkan ID'
+                }
+                disabled={laporanForm.jenis === 'sekolah'}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="tanggalMulai">Tanggal Mulai</label>
+              <input
+                id="tanggalMulai"
+                name="tanggalMulai"
+                type="date"
+                value={laporanForm.tanggalMulai}
+                onChange={onFormChange}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="tanggalSelesai">Tanggal Selesai</label>
+              <input
+                id="tanggalSelesai"
+                name="tanggalSelesai"
+                type="date"
+                value={laporanForm.tanggalSelesai}
+                onChange={onFormChange}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="format">Format File</label>
+              <select
+                id="format"
+                name="format"
+                value={laporanForm.format}
+                onChange={onFormChange}
+              >
+                <option value="pdf">PDF</option>
+                <option value="excel">Excel</option>
+              </select>
+            </div>
+
+            <button type="submit" disabled={loading}>
+              {loading ? 'Memproses...' : 'Generate Laporan'}
+            </button>
+          </form>
+
+          <div className="laporan-actions">
+            <button
+              type="button"
+              onClick={onDownload}
+              disabled={!generatedLaporan?.id_laporan || loading}
+            >
+              Download File
+            </button>
+            {generatedLaporan ? (
+              <p className="api-note">
+                ID Laporan: {generatedLaporan.id_laporan} | Format:{' '}
+                {generatedLaporan.format}
+              </p>
+            ) : null}
+          </div>
+        </section>
+
+        {error ? <p className="alert error">{error}</p> : null}
+        {successMessage ? <p className="alert success">{successMessage}</p> : null}
+      </section>
+    </main>
+  )
+}
+
 function App() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -374,6 +508,13 @@ function App() {
     password: '',
     confirmPassword: '',
   })
+  const [laporanForm, setLaporanForm] = useState({
+    jenis: 'kelas',
+    filterId: '',
+    tanggalMulai: '',
+    tanggalSelesai: '',
+    format: 'pdf',
+  })
 
   const [loading, setLoading] = useState(false)
   const [checkingSession, setCheckingSession] = useState(true)
@@ -382,6 +523,7 @@ function App() {
   const [successMessage, setSuccessMessage] = useState('')
   const [authUser, setAuthUser] = useState(null)
   const [dashboardData, setDashboardData] = useState(null)
+  const [generatedLaporan, setGeneratedLaporan] = useState(null)
 
   const api = useMemo(
     () =>
@@ -500,6 +642,17 @@ function App() {
     setError('')
     setSuccessMessage('')
     navigate(nextMode === 'register' ? '/register' : '/login')
+  }
+
+  const handleLaporanChange = (event) => {
+    const { name, value } = event.target
+    setLaporanForm((prev) => {
+      if (name === 'jenis' && value === 'sekolah') {
+        return { ...prev, jenis: value, filterId: '' }
+      }
+
+      return { ...prev, [name]: value }
+    })
   }
 
   const handleLogin = async (event) => {
@@ -659,6 +812,129 @@ function App() {
     }
   }
 
+  const handleOpenLaporan = () => {
+    setError('')
+    setSuccessMessage('')
+    navigate('/laporan')
+  }
+
+  const handleBackToDashboard = () => {
+    setError('')
+    setSuccessMessage('')
+    navigate('/dashboard')
+  }
+
+  const handleGenerateLaporan = async (event) => {
+    event.preventDefault()
+    setError('')
+    setSuccessMessage('')
+    setGeneratedLaporan(null)
+
+    const headers = getAuthHeaders()
+    if (!headers) {
+      setError('Silakan login terlebih dahulu.')
+      return
+    }
+
+    if (
+      ['kelas', 'siswa'].includes(laporanForm.jenis) &&
+      (!laporanForm.filterId || Number.isNaN(Number(laporanForm.filterId)))
+    ) {
+      setError('Filter ID wajib diisi angka valid untuk jenis kelas/siswa.')
+      return
+    }
+
+    if (
+      laporanForm.tanggalMulai &&
+      laporanForm.tanggalSelesai &&
+      laporanForm.tanggalMulai > laporanForm.tanggalSelesai
+    ) {
+      setError('Tanggal mulai tidak boleh melebihi tanggal selesai.')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const payload = {
+        jenis: laporanForm.jenis,
+        format: laporanForm.format,
+        filter_id: ['kelas', 'siswa'].includes(laporanForm.jenis)
+          ? Number(laporanForm.filterId)
+          : null,
+        tanggal_mulai: laporanForm.tanggalMulai || null,
+        tanggal_selesai: laporanForm.tanggalSelesai || null,
+      }
+
+      const { data } = await api.post('/laporan/generate', payload, { headers })
+      if (!data?.success || !data?.data?.id_laporan) {
+        setError('Respons generate laporan tidak valid.')
+        return
+      }
+
+      setGeneratedLaporan(data.data)
+      setSuccessMessage('Laporan berhasil digenerate. Klik tombol download.')
+    } catch (requestError) {
+      const apiMessage =
+        requestError?.response?.data?.message ||
+        requestError?.response?.data?.error ||
+        requestError?.message ||
+        'Gagal generate laporan.'
+      setError(apiMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDownloadLaporan = async () => {
+    if (!generatedLaporan?.id_laporan) {
+      setError('Belum ada laporan yang bisa diunduh.')
+      return
+    }
+
+    const headers = getAuthHeaders()
+    if (!headers) {
+      setError('Silakan login terlebih dahulu.')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+    try {
+      const response = await api.get(
+        `/laporan/download/${generatedLaporan.id_laporan}`,
+        {
+          headers,
+          responseType: 'blob',
+        },
+      )
+
+      const contentDisposition = response.headers['content-disposition'] || ''
+      const filenameMatch = contentDisposition.match(/filename=\"?([^\";]+)\"?/)
+      const fallbackExt = generatedLaporan.format === 'excel' ? 'xlsx' : 'pdf'
+      const filename = filenameMatch?.[1] || `laporan_${generatedLaporan.id_laporan}.${fallbackExt}`
+
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.setAttribute('download', filename)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(blobUrl)
+
+      setSuccessMessage('File laporan berhasil diunduh.')
+    } catch (requestError) {
+      const apiMessage =
+        requestError?.response?.data?.message ||
+        requestError?.response?.data?.error ||
+        requestError?.message ||
+        'Gagal mengunduh laporan.'
+      setError(apiMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (checkingSession) {
     return (
       <main className="login-page">
@@ -737,7 +1013,28 @@ function App() {
               error={error}
               successMessage={successMessage}
               onRefresh={handleRefreshDashboard}
+              onOpenLaporan={handleOpenLaporan}
               onLogout={handleLogout}
+            />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/laporan"
+        element={
+          authUser ? (
+            <LaporanPage
+              loading={loading}
+              error={error}
+              successMessage={successMessage}
+              laporanForm={laporanForm}
+              generatedLaporan={generatedLaporan}
+              onFormChange={handleLaporanChange}
+              onSubmit={handleGenerateLaporan}
+              onDownload={handleDownloadLaporan}
+              onBackToDashboard={handleBackToDashboard}
             />
           ) : (
             <Navigate to="/login" replace />
