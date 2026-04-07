@@ -229,9 +229,11 @@ function DashboardPage({
   authUser,
   dashboardData,
   dashboardLoading,
+  unreadCount,
   error,
   successMessage,
   onRefresh,
+  onOpenNotifikasi,
   onLogout,
 }) {
   const cards = dashboardData?.cards || []
@@ -257,6 +259,16 @@ function DashboardPage({
 
           <div className="dashboard-actions">
             <span className="role-pill">{roleLabels[authUser.role] || authUser.role}</span>
+            <button
+              type="button"
+              className="ghost-button notification-trigger"
+              onClick={onOpenNotifikasi}
+            >
+              Notifikasi
+              {unreadCount > 0 ? (
+                <span className="notification-badge">{unreadCount}</span>
+              ) : null}
+            </button>
             <button type="button" className="ghost-button" onClick={onRefresh}>
               Muat Ulang
             </button>
@@ -356,6 +368,76 @@ function DashboardPage({
   )
 }
 
+function NotificationPage({
+  notifications,
+  unreadCount,
+  loading,
+  error,
+  successMessage,
+  onRefresh,
+  onMarkAsRead,
+  onBackToDashboard,
+}) {
+  return (
+    <main className="dashboard-page">
+      <section className="dashboard-shell">
+        <header className="dashboard-hero">
+          <div>
+            <p className="eyebrow">F024</p>
+            <h1>Notifikasi</h1>
+            <p className="subtitle dashboard-subtitle">
+              Badge unread count, list notifikasi, dan klik item untuk tandai sudah dibaca.
+            </p>
+          </div>
+
+          <div className="dashboard-actions">
+            <span className="role-pill">Belum dibaca: {unreadCount}</span>
+            <button type="button" className="ghost-button" onClick={onRefresh} disabled={loading}>
+              {loading ? 'Memuat...' : 'Muat Ulang'}
+            </button>
+            <button type="button" className="ghost-button" onClick={onBackToDashboard}>
+              Kembali ke Dashboard
+            </button>
+          </div>
+        </header>
+
+        {error ? <p className="alert error">{error}</p> : null}
+        {successMessage ? <p className="alert success">{successMessage}</p> : null}
+
+        <section className="dashboard-panel">
+          {notifications.length ? (
+            <div className="notification-list">
+              {notifications.map((item) => (
+                <button
+                  type="button"
+                  key={item.id_notifikasi}
+                  className={item.is_read ? 'notification-item read' : 'notification-item unread'}
+                  onClick={() => onMarkAsRead(item)}
+                >
+                  <div className="notification-item-head">
+                    <strong>{item.judul || 'Notifikasi'}</strong>
+                    <span className={item.is_read ? 'chip-read' : 'chip-unread'}>
+                      {item.is_read ? 'Sudah Dibaca' : 'Belum Dibaca'}
+                    </span>
+                  </div>
+                  <p>{item.pesan || '-'}</p>
+                  <small>
+                    {item.created_at ? new Date(item.created_at).toLocaleString('id-ID') : '-'}
+                  </small>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <p>Belum ada notifikasi untuk akun ini.</p>
+            </div>
+          )}
+        </section>
+      </section>
+    </main>
+  )
+}
+
 function App() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -382,6 +464,9 @@ function App() {
   const [successMessage, setSuccessMessage] = useState('')
   const [authUser, setAuthUser] = useState(null)
   const [dashboardData, setDashboardData] = useState(null)
+  const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notificationLoading, setNotificationLoading] = useState(false)
 
   const api = useMemo(
     () =>
@@ -402,6 +487,8 @@ function App() {
     localStorage.removeItem('sikap_user')
     setAuthUser(null)
     setDashboardData(null)
+    setNotifications([])
+    setUnreadCount(0)
   }
 
   const getAuthHeaders = () => {
@@ -457,6 +544,78 @@ function App() {
     }
   }
 
+  const getNotificationPayload = (responseBody) => {
+    const candidates = [responseBody?.data, responseBody?.message]
+    return (
+      candidates.find(
+        (item) =>
+          item &&
+          typeof item === 'object' &&
+          (Array.isArray(item.notifikasi) || typeof item.unread_count === 'number'),
+      ) || {}
+    )
+  }
+
+  const requestNotifikasi = async (method, path = '', config = {}) => {
+    const candidates = [...new Set([`${apiBaseUrl}/notifikasi${path}`, `/api/notifikasi${path}`])]
+    let lastError = null
+
+    for (const url of candidates) {
+      try {
+        return await axios({
+          method,
+          url,
+          timeout: 10000,
+          ...config,
+        })
+      } catch (error) {
+        const status = error?.response?.status
+        if (status === 404 && url !== candidates[candidates.length - 1]) {
+          lastError = error
+          continue
+        }
+        throw error
+      }
+    }
+
+    throw lastError || new Error('Gagal mengakses endpoint notifikasi.')
+  }
+
+  const fetchNotifications = async ({ silent = false } = {}) => {
+    const headers = getAuthHeaders()
+
+    if (!headers) {
+      return
+    }
+
+    if (!silent) {
+      setNotificationLoading(true)
+    }
+
+    try {
+      const { data } = await requestNotifikasi('get', '', {
+        headers,
+        params: { page: 1, per_page: 20 },
+      })
+      const payload = getNotificationPayload(data)
+      setNotifications(Array.isArray(payload.notifikasi) ? payload.notifikasi : [])
+      setUnreadCount(Number(payload.unread_count || 0))
+    } catch (requestError) {
+      if (!silent) {
+        const apiMessage =
+          requestError?.response?.data?.message ||
+          requestError?.response?.data?.error ||
+          requestError?.message ||
+          'Gagal memuat notifikasi.'
+        setError(apiMessage)
+      }
+    } finally {
+      if (!silent) {
+        setNotificationLoading(false)
+      }
+    }
+  }
+
   useEffect(() => {
     const bootstrapSession = async () => {
       const token = localStorage.getItem('sikap_token')
@@ -476,6 +635,7 @@ function App() {
         } catch (_dashboardError) {
           setError('Sesi login aktif, tetapi data dashboard belum berhasil dimuat.')
         }
+        await fetchNotifications({ silent: true })
       } catch (_err) {
         clearSession()
       } finally {
@@ -533,6 +693,7 @@ function App() {
       } catch (_dashboardError) {
         setError('Login berhasil, tetapi data dashboard belum berhasil dimuat.')
       }
+      await fetchNotifications({ silent: true })
 
       const displayName = user?.full_name || user?.username || loginForm.username
       setSuccessMessage(`Login berhasil. Selamat datang, ${displayName}.`)
@@ -659,6 +820,67 @@ function App() {
     }
   }
 
+  const handleOpenNotifikasi = () => {
+    setError('')
+    setSuccessMessage('')
+    fetchNotifications({ silent: true })
+    navigate('/notifikasi')
+  }
+
+  const handleBackToDashboard = () => {
+    setError('')
+    setSuccessMessage('')
+    navigate('/dashboard')
+  }
+
+  const handleRefreshNotifications = async () => {
+    setError('')
+    setSuccessMessage('')
+    await fetchNotifications()
+  }
+
+  const handleMarkNotificationAsRead = async (notification) => {
+    if (!notification || notification.is_read) {
+      return
+    }
+
+    const headers = getAuthHeaders()
+    if (!headers) {
+      setError('Silakan login terlebih dahulu.')
+      return
+    }
+
+    setNotificationLoading(true)
+    setError('')
+    setSuccessMessage('')
+    try {
+      await requestNotifikasi('put', `/${notification.id_notifikasi}/read`, { headers })
+      setSuccessMessage('Notifikasi ditandai sudah dibaca.')
+      await fetchNotifications({ silent: true })
+    } catch (requestError) {
+      const apiMessage =
+        requestError?.response?.data?.message ||
+        requestError?.response?.data?.error ||
+        requestError?.message ||
+        'Gagal menandai notifikasi.'
+      setError(apiMessage)
+    } finally {
+      setNotificationLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!authUser) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      fetchNotifications({ silent: true })
+    }, 30000)
+
+    return () => window.clearInterval(intervalId)
+  }, [authUser])
+
   if (checkingSession) {
     return (
       <main className="login-page">
@@ -734,10 +956,31 @@ function App() {
               authUser={authUser}
               dashboardData={dashboardData}
               dashboardLoading={dashboardLoading}
+              unreadCount={unreadCount}
               error={error}
               successMessage={successMessage}
               onRefresh={handleRefreshDashboard}
+              onOpenNotifikasi={handleOpenNotifikasi}
               onLogout={handleLogout}
+            />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/notifikasi"
+        element={
+          authUser ? (
+            <NotificationPage
+              notifications={notifications}
+              unreadCount={unreadCount}
+              loading={notificationLoading}
+              error={error}
+              successMessage={successMessage}
+              onRefresh={handleRefreshNotifications}
+              onMarkAsRead={handleMarkNotificationAsRead}
+              onBackToDashboard={handleBackToDashboard}
             />
           ) : (
             <Navigate to="/login" replace />
