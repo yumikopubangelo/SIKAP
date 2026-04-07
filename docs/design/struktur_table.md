@@ -4,7 +4,7 @@
 **Database:** `sikap_db`  
 **Engine:** MySQL 8.0  
 **Charset:** utf8mb4  
-**Total Tabel:** 18 tabel  
+**Total Tabel:** 19 tabel  
 
 ---
 
@@ -30,6 +30,7 @@
 | 16 | `sekolah_info` | Konfigurasi | Profil & logo sekolah |
 | 17 | `password_reset_token` | Auth | Token reset password via email |
 | 18 | `sengketa_absensi` | Operasional | Klaim siswa yang tidak terabsen |
+| 19 | `izin_pengajuan` | Operasional | Pengajuan izin ketidakhadiran oleh siswa |
 
 ---
 
@@ -420,6 +421,29 @@
 
 ---
 
+## 19. Tabel `izin_pengajuan`
+**Kategori:** Operasional  
+**Deskripsi:** Pengajuan izin ketidakhadiran (seperti izin haid, sakit, acara keluarga) yang diajukan oleh siswa dan diverifikasi oleh wali kelas.
+
+| Kolom | Tipe Data | Constraint | Keterangan |
+|-------|-----------|------------|------------|
+| `id_izin` | INT | PK, AUTO_INCREMENT | Primary key |
+| `id_siswa` | INT | FK → `siswa.id_siswa` | Siswa yang mengajukan |
+| `tanggal_mulai` | DATE | NOT NULL | Tanggal izin dimulai |
+| `tanggal_selesai` | DATE | NOT NULL | Tanggal izin berakhir |
+| `alasan` | TEXT | NOT NULL | Deskripsi alasan izin (haid/sakit/dll) |
+| `status` | VARCHAR(20) | DEFAULT `pending` | Nilai: `pending`, `disetujui`, `ditolak` |
+| `id_verifikator` | INT | FK → `users.id_user` | Wali kelas yang memverifikasi |
+| `catatan_verifikator` | TEXT | — | Keterangan tambahan dari wali kelas |
+| `created_at` | DATETIME | DEFAULT NOW() | Waktu pengajuan dibuat |
+| `updated_at` | DATETIME | — | Waktu update terakhir |
+
+**Relasi:**
+- → `siswa.id_siswa`
+- → `users.id_user` (verifikator)
+
+---
+
 ---
 
 ## 🔗 Ringkasan Relasi Antar Tabel
@@ -443,7 +467,8 @@ siswa ────────────────────────�
   │ N:1 → kelas (id_kelas)
   │ 1:N → absensi (id_siswa)
   │ 1:N → surat_peringatan (id_siswa)
-  └ 1:1 → orangtua (id_siswa)
+  │ 1:1 → orangtua (id_siswa)
+  └ 1:N → izin_pengajuan (id_siswa)
 
 waktu_sholat ───────────────────────────────────────────────────
   └ 1:N → sesi_sholat (id_waktu)
