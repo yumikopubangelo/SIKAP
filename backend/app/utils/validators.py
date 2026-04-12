@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 from ..models.absensi import ABSENSI_STATUS_VALUES
 from ..models.user import ROLE_VALUES
@@ -33,6 +33,15 @@ def _parse_datetime(value: str) -> datetime | None:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def _parse_time(value: str) -> time | None:
+    for fmt in ("%H:%M", "%H:%M:%S"):
+        try:
+            return datetime.strptime(value, fmt).time()
+        except ValueError:
+            continue
+    return None
 
 
 def validate_manual_absensi_payload(payload):
@@ -184,4 +193,171 @@ def validate_register_payload(payload):
         "role": role,
         "nisn": nisn,
         "id_card": id_card,
+    }, None
+
+
+def validate_user_list_params(params):
+    params = params or {}
+    role_raw = (params.get("role") or "").strip()
+    search = (params.get("search") or "").strip()
+    page_raw = (params.get("page") or "1").strip()
+    limit_raw = (params.get("limit") or "20").strip()
+
+    errors = {}
+    role = None
+    if role_raw:
+      role = _normalize_role(role_raw)
+      if role not in ROLE_VALUES:
+          errors["role"] = "Role tidak valid."
+
+    if not page_raw.isdigit() or int(page_raw) < 1:
+        errors["page"] = "Page harus berupa angka >= 1."
+
+    if not limit_raw.isdigit() or int(limit_raw) < 1:
+        errors["limit"] = "Limit harus berupa angka >= 1."
+
+    if errors:
+        return None, errors
+
+    return {
+        "role": role,
+        "search": search or None,
+        "page": int(page_raw),
+        "limit": min(int(limit_raw), 100),
+    }, None
+
+
+def validate_user_create_payload(payload):
+    payload = payload or {}
+
+    username = (payload.get("username") or "").strip()
+    password = payload.get("password") or ""
+    full_name = (payload.get("full_name") or "").strip()
+    email = (payload.get("email") or "").strip() or None
+    no_telp = (payload.get("no_telp") or "").strip() or None
+    role = _normalize_role(payload.get("role") or "")
+    nisn = (payload.get("nisn") or "").strip() or None
+    id_card = (payload.get("id_card") or "").strip() or None
+
+    errors = {}
+    if not username:
+        errors["username"] = "Username wajib diisi."
+
+    if not full_name:
+        errors["full_name"] = "Nama lengkap wajib diisi."
+
+    if not password:
+        errors["password"] = "Password wajib diisi."
+    elif len(password) < 8:
+        errors["password"] = "Password minimal 8 karakter."
+
+    if role not in ROLE_VALUES:
+        errors["role"] = "Role tidak valid."
+
+    if role == "siswa" and not nisn and not id_card:
+        errors["student_lookup"] = "Role siswa wajib menyertakan nisn atau id_card."
+
+    if errors:
+        return None, errors
+
+    return {
+        "username": username,
+        "password": password,
+        "full_name": full_name,
+        "email": email,
+        "no_telp": no_telp,
+        "role": role,
+        "nisn": nisn,
+        "id_card": id_card,
+    }, None
+
+
+def validate_user_update_payload(payload):
+    payload = payload or {}
+
+    updates = {}
+    errors = {}
+
+    if "username" in payload:
+        username = (payload.get("username") or "").strip()
+        if not username:
+            errors["username"] = "Username wajib diisi."
+        else:
+            updates["username"] = username
+
+    if "full_name" in payload:
+        full_name = (payload.get("full_name") or "").strip()
+        if not full_name:
+            errors["full_name"] = "Nama lengkap wajib diisi."
+        else:
+            updates["full_name"] = full_name
+
+    if "email" in payload:
+        updates["email"] = (payload.get("email") or "").strip() or None
+
+    if "no_telp" in payload:
+        updates["no_telp"] = (payload.get("no_telp") or "").strip() or None
+
+    if "role" in payload:
+        role = _normalize_role(payload.get("role") or "")
+        if role not in ROLE_VALUES:
+            errors["role"] = "Role tidak valid."
+        else:
+            updates["role"] = role
+
+    if "password" in payload:
+        password = payload.get("password") or ""
+        if password and len(password) < 8:
+            errors["password"] = "Password minimal 8 karakter."
+        elif password:
+            updates["password"] = password
+
+    if "nisn" in payload:
+        updates["nisn"] = (payload.get("nisn") or "").strip() or None
+
+    if "id_card" in payload:
+        updates["id_card"] = (payload.get("id_card") or "").strip() or None
+
+    if not updates:
+        errors["payload"] = "Minimal satu field perubahan wajib diisi."
+
+    if errors:
+        return None, errors
+
+    return updates, None
+
+
+def validate_waktu_sholat_update_payload(payload):
+    payload = payload or {}
+
+    waktu_adzan_raw = (payload.get("waktu_adzan") or "").strip()
+    waktu_iqamah_raw = (payload.get("waktu_iqamah") or "").strip()
+    waktu_selesai_raw = (payload.get("waktu_selesai") or "").strip()
+
+    errors = {}
+    if not waktu_adzan_raw:
+        errors["waktu_adzan"] = "Waktu adzan wajib diisi."
+    if not waktu_iqamah_raw:
+        errors["waktu_iqamah"] = "Waktu iqamah wajib diisi."
+    if not waktu_selesai_raw:
+        errors["waktu_selesai"] = "Waktu selesai wajib diisi."
+
+    waktu_adzan = _parse_time(waktu_adzan_raw) if waktu_adzan_raw else None
+    waktu_iqamah = _parse_time(waktu_iqamah_raw) if waktu_iqamah_raw else None
+    waktu_selesai = _parse_time(waktu_selesai_raw) if waktu_selesai_raw else None
+
+    if waktu_adzan_raw and waktu_adzan is None:
+        errors["waktu_adzan"] = "Format waktu adzan harus HH:MM atau HH:MM:SS."
+    if waktu_iqamah_raw and waktu_iqamah is None:
+        errors["waktu_iqamah"] = "Format waktu iqamah harus HH:MM atau HH:MM:SS."
+    if waktu_selesai_raw and waktu_selesai is None:
+        errors["waktu_selesai"] = "Format waktu selesai harus HH:MM atau HH:MM:SS."
+
+    if errors:
+        return None, errors
+
+    return {
+        "waktu_adzan": waktu_adzan,
+        "waktu_iqamah": waktu_iqamah,
+        "waktu_selesai": waktu_selesai,
     }, None
