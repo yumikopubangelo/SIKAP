@@ -64,6 +64,30 @@ function formatCellValue(value) {
   return String(value)
 }
 
+function LoadingSpinner({ label = 'Memuat...' }) {
+  return (
+    <span className="loading-inline" role="status" aria-live="polite" aria-label={label}>
+      <span className="loading-spinner" aria-hidden="true" />
+      <span>{label}</span>
+    </span>
+  )
+}
+
+function Toast({ toast, onClose }) {
+  if (!toast?.message) {
+    return null
+  }
+
+  return (
+    <div className={`toast ${toast.type}`} role="alert" aria-live="assertive">
+      <p>{toast.message}</p>
+      <button type="button" className="toast-close" onClick={onClose} aria-label="Tutup notifikasi">
+        ×
+      </button>
+    </div>
+  )
+}
+
 function AuthPage({
   mode,
   loading,
@@ -79,9 +103,12 @@ function AuthPage({
   onSwitchMode,
   apiBaseUrlValue,
 }) {
+  const authBusy = loading || checkingSession
+  const hasError = Boolean(error)
+
   return (
-    <main className="login-page">
-      <section className="login-card">
+    <main className="login-page" aria-busy={authBusy}>
+      <section className="login-card" aria-live="polite">
         <h1>SIKAP Auth</h1>
         <p className="subtitle">
           Sistem Informasi Kepatuhan Ibadah Peserta Didik
@@ -94,6 +121,7 @@ function AuthPage({
             type="button"
             className={mode === 'login' ? 'tab active' : 'tab'}
             onClick={() => onSwitchMode('login')}
+            aria-pressed={mode === 'login'}
           >
             Login
           </button>
@@ -101,19 +129,23 @@ function AuthPage({
             type="button"
             className={mode === 'register' ? 'tab active' : 'tab'}
             onClick={() => onSwitchMode('register')}
+            aria-pressed={mode === 'register'}
           >
             Registrasi
           </button>
         </div>
 
         {mode === 'login' ? (
-          <form onSubmit={onLogin} className="login-form">
+          <form onSubmit={onLogin} className="login-form" aria-busy={authBusy}>
             <label htmlFor="username">Username / Email</label>
             <input
               id="username"
               name="username"
               type="text"
               autoComplete="username"
+              required
+              aria-invalid={hasError}
+              aria-describedby={hasError ? 'auth-form-error' : undefined}
               value={loginForm.username}
               onChange={onLoginChange}
               placeholder="contoh: admin atau admin@sikap.local"
@@ -125,22 +157,28 @@ function AuthPage({
               name="password"
               type="password"
               autoComplete="current-password"
+              required
+              aria-invalid={hasError}
+              aria-describedby={hasError ? 'auth-form-error' : undefined}
               value={loginForm.password}
               onChange={onLoginChange}
               placeholder="Masukkan password"
             />
 
             <button type="submit" disabled={loading || checkingSession}>
-              {loading ? 'Memproses...' : 'Masuk'}
+              {loading ? <LoadingSpinner label="Memproses..." /> : 'Masuk'}
             </button>
           </form>
         ) : (
-          <form onSubmit={onRegister} className="login-form">
+          <form onSubmit={onRegister} className="login-form" aria-busy={authBusy}>
             <label htmlFor="register_username">Username</label>
             <input
               id="register_username"
               name="username"
               type="text"
+              required
+              aria-invalid={hasError}
+              aria-describedby={hasError ? 'auth-form-error' : undefined}
               value={registerForm.username}
               onChange={onRegisterChange}
               placeholder="contoh: ahmad.fadil"
@@ -151,6 +189,9 @@ function AuthPage({
               id="register_full_name"
               name="full_name"
               type="text"
+              required
+              aria-invalid={hasError}
+              aria-describedby={hasError ? 'auth-form-error' : undefined}
               value={registerForm.full_name}
               onChange={onRegisterChange}
               placeholder="Nama lengkap user"
@@ -195,6 +236,9 @@ function AuthPage({
               id="register_password"
               name="password"
               type="password"
+              required
+              aria-invalid={hasError}
+              aria-describedby={hasError ? 'auth-form-error' : undefined}
               value={registerForm.password}
               onChange={onRegisterChange}
               placeholder="Minimal 8 karakter"
@@ -205,19 +249,22 @@ function AuthPage({
               id="register_confirm_password"
               name="confirmPassword"
               type="password"
+              required
+              aria-invalid={hasError}
+              aria-describedby={hasError ? 'auth-form-error' : undefined}
               value={registerForm.confirmPassword}
               onChange={onRegisterChange}
               placeholder="Ulangi password"
             />
 
             <button type="submit" disabled={loading || checkingSession}>
-              {loading ? 'Memproses...' : 'Daftar'}
+              {loading ? <LoadingSpinner label="Memproses..." /> : 'Daftar'}
             </button>
           </form>
         )}
 
-        {error ? <p className="alert error">{error}</p> : null}
-        {successMessage ? <p className="alert success">{successMessage}</p> : null}
+        {error ? <p id="auth-form-error" className="alert error" role="alert">{error}</p> : null}
+        {successMessage ? <p className="alert success" role="status">{successMessage}</p> : null}
 
         <p className="api-note">
           Endpoint backend: {apiBaseUrlValue}/auth/login, /auth/me, /auth/logout,
@@ -248,7 +295,7 @@ function DashboardPage({
   }
 
   return (
-    <main className="dashboard-page">
+    <main className="dashboard-page" aria-busy={dashboardLoading}>
       <section className="dashboard-shell">
         <header className="dashboard-hero">
           <div>
@@ -269,7 +316,7 @@ function DashboardPage({
             <button type="button" className="ghost-button" onClick={onRefresh}>
               Muat Ulang
             </button>
-            <button type="button" onClick={onLogout}>
+            <button type="button" onClick={onLogout} aria-label="Logout dari aplikasi">
               Logout
             </button>
           </div>
@@ -290,12 +337,12 @@ function DashboardPage({
           </div>
         </section>
 
-        {error ? <p className="alert error">{error}</p> : null}
-        {successMessage ? <p className="alert success">{successMessage}</p> : null}
+        {error ? <p className="alert error" role="alert">{error}</p> : null}
+        {successMessage ? <p className="alert success" role="status">{successMessage}</p> : null}
 
         {dashboardLoading ? (
           <section className="dashboard-panel">
-            <p className="api-note">Memuat data dashboard...</p>
+            <LoadingSpinner label="Memuat data dashboard..." />
           </section>
         ) : null}
 
@@ -331,7 +378,7 @@ function DashboardPage({
 
               {primaryTable.rows?.length ? (
                 <div className="table-wrapper">
-                  <table>
+                  <table aria-label={primaryTable.title || 'Tabel dashboard'}>
                     <thead>
                       <tr>
                         {primaryTable.columns.map((column) => (
@@ -501,6 +548,38 @@ function App() {
 
     bootstrapSession()
   }, [])
+
+  useEffect(() => {
+    if (error) {
+      setToast({ type: 'error', message: error })
+      return
+    }
+
+    if (successMessage) {
+      setToast({ type: 'success', message: successMessage })
+    }
+  }, [error, successMessage])
+
+  useEffect(() => {
+    if (!toast?.message) {
+      return
+    }
+
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current)
+    }
+
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast(null)
+      toastTimerRef.current = null
+    }, 3500)
+
+    return () => {
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current)
+      }
+    }
+  }, [toast])
 
   const handleLoginChange = (event) => {
     const { name, value } = event.target
@@ -756,7 +835,7 @@ function App() {
       <main className="login-page">
         <section className="login-card">
           <h1>SIKAP</h1>
-          <p className="subtitle">Memeriksa sesi login dan menyiapkan dashboard...</p>
+          <LoadingSpinner label="Memeriksa sesi login dan menyiapkan dashboard..." />
         </section>
       </main>
     )
