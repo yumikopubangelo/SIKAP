@@ -326,6 +326,25 @@ button:disabled {
   background: rgba(255, 255, 255, 0.92);
 }
 
+.notification-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.notification-badge {
+  min-width: 1.4rem;
+  height: 1.4rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: #d62839;
+  color: #fff;
+  font-size: 0.72rem;
+  line-height: 1.4rem;
+  text-align: center;
+  font-weight: 700;
+}
+
 .role-pill {
   display: inline-flex;
   align-items: center;
@@ -417,6 +436,69 @@ button:disabled {
 
 .dashboard-panel {
   padding: 1rem 1rem 1.1rem;
+}
+
+.notification-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.notification-item {
+  text-align: left;
+  color: #193447;
+  background: #ffffff;
+  border: 1px solid #d4e1ea;
+  padding: 0.85rem 0.95rem;
+  border-radius: 12px;
+}
+
+.notification-item.unread {
+  border-color: #89bbde;
+  box-shadow: 0 0 0 3px rgba(20, 119, 184, 0.1);
+}
+
+.notification-item.read {
+  opacity: 0.9;
+}
+
+.notification-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.notification-item p {
+  margin: 0.45rem 0 0.5rem;
+  color: #38566a;
+  font-weight: 500;
+}
+
+.notification-item small {
+  color: #60798d;
+}
+
+.chip-unread,
+.chip-read {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.chip-unread {
+  background: #edf7ff;
+  color: #0d5ca2;
+  border: 1px solid #b6d7ef;
+}
+
+.chip-read {
+  background: #edf8f0;
+  color: #1b7e43;
+  border: 1px solid #bde7cc;
 }
 
 .panel-header {
