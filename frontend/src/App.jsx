@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
@@ -22,6 +22,14 @@ const userManagementPath = '/admin/users'
 const prayerTimePath = '/admin/waktu-sholat'
 const profilePath = '/profil'
 const schoolDataPath = '/data-sekolah'
+import mqtt from 'mqtt'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import './App.css'
+
+const apiBaseUrl =
+  (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/$/, '')
+const mqttWsUrl = import.meta.env.VITE_MQTT_WS_URL || 'ws://localhost:9001'
+const mqttTopicAbsensi = import.meta.env.VITE_MQTT_TOPIC_ABSENSI || 'absensi/realtime'
 
 const roleOptions = [
   { value: 'admin', label: 'Admin' },
@@ -772,6 +780,27 @@ function PrayerTimeSettingsPage({ authUser, api, getAuthHeaders, onBackToDashboa
         )}
       </section>
     </AppShell>
+function LoadingSpinner({ label = 'Memuat...' }) {
+  return (
+    <span className="loading-inline" role="status" aria-live="polite" aria-label={label}>
+      <span className="loading-spinner" aria-hidden="true" />
+      <span>{label}</span>
+    </span>
+  )
+}
+
+function Toast({ toast, onClose }) {
+  if (!toast?.message) {
+    return null
+  }
+
+  return (
+    <div className={`toast ${toast.type}`} role="alert" aria-live="assertive">
+      <p>{toast.message}</p>
+      <button type="button" className="toast-close" onClick={onClose} aria-label="Tutup notifikasi">
+        ×
+      </button>
+    </div>
   )
 }
 
@@ -790,9 +819,12 @@ function AuthPage({
   onSwitchMode,
   apiBaseUrlValue,
 }) {
+  const authBusy = loading || checkingSession
+  const hasError = Boolean(error)
+
   return (
-    <main className="login-page">
-      <section className="login-card">
+    <main className="login-page" aria-busy={authBusy}>
+      <section className="login-card" aria-live="polite">
         <h1>SIKAP Auth</h1>
         <p className="subtitle">Sistem Informasi Kepatuhan Ibadah Peserta Didik</p>
         {checkingSession ? <p className="api-note">Memeriksa sesi login...</p> : null}
@@ -802,6 +834,7 @@ function AuthPage({
             type="button"
             className={mode === 'login' ? 'tab active' : 'tab'}
             onClick={() => onSwitchMode('login')}
+            aria-pressed={mode === 'login'}
           >
             Login
           </button>
@@ -809,19 +842,23 @@ function AuthPage({
             type="button"
             className={mode === 'register' ? 'tab active' : 'tab'}
             onClick={() => onSwitchMode('register')}
+            aria-pressed={mode === 'register'}
           >
             Registrasi
           </button>
         </div>
 
         {mode === 'login' ? (
-          <form onSubmit={onLogin} className="login-form">
+          <form onSubmit={onLogin} className="login-form" aria-busy={authBusy}>
             <label htmlFor="username">Username / Email</label>
             <input
               id="username"
               name="username"
               type="text"
               autoComplete="username"
+              required
+              aria-invalid={hasError}
+              aria-describedby={hasError ? 'auth-form-error' : undefined}
               value={loginForm.username}
               onChange={onLoginChange}
               placeholder="contoh: admin atau admin@sikap.local"
@@ -833,17 +870,20 @@ function AuthPage({
               name="password"
               type="password"
               autoComplete="current-password"
+              required
+              aria-invalid={hasError}
+              aria-describedby={hasError ? 'auth-form-error' : undefined}
               value={loginForm.password}
               onChange={onLoginChange}
               placeholder="Masukkan password"
             />
 
             <button type="submit" disabled={loading || checkingSession}>
-              {loading ? 'Memproses...' : 'Masuk'}
+              {loading ? <LoadingSpinner label="Memproses..." /> : 'Masuk'}
             </button>
           </form>
         ) : (
-          <form onSubmit={onRegister} className="login-form">
+          <form onSubmit={onRegister} className="login-form" aria-busy={authBusy}>
             <label htmlFor="register_username">Username</label>
             <input id="register_username" name="username" type="text" value={registerForm.username} onChange={onRegisterChange} placeholder="contoh: ahmad.fadil" />
 
@@ -1984,6 +2024,30 @@ function UserFormPage({
     ) {
       nextErrors.confirmPassword = 'Konfirmasi password tidak sama.'
     }
+            <input
+              id="register_username"
+              name="username"
+              type="text"
+              required
+              aria-invalid={hasError}
+              aria-describedby={hasError ? 'auth-form-error' : undefined}
+              value={registerForm.username}
+              onChange={onRegisterChange}
+              placeholder="contoh: ahmad.fadil"
+            />
+
+            <label htmlFor="register_full_name">Nama Lengkap</label>
+            <input
+              id="register_full_name"
+              name="full_name"
+              type="text"
+              required
+              aria-invalid={hasError}
+              aria-describedby={hasError ? 'auth-form-error' : undefined}
+              value={registerForm.full_name}
+              onChange={onRegisterChange}
+              placeholder="Nama lengkap user"
+            />
 
     if (currentForm.role === 'siswa' && !linkedStudentLocked && !/^\d{10}$/.test(currentForm.nisn)) {
       nextErrors.nisn = 'NISN 10 digit wajib diisi untuk akun siswa.'
@@ -2028,6 +2092,40 @@ function UserFormPage({
         no_telp: form.no_telp.trim() || '',
         role: form.role,
       }
+            <label htmlFor="register_password">Password</label>
+            <input
+              id="register_password"
+              name="password"
+              type="password"
+              required
+              aria-invalid={hasError}
+              aria-describedby={hasError ? 'auth-form-error' : undefined}
+              value={registerForm.password}
+              onChange={onRegisterChange}
+              placeholder="Minimal 8 karakter"
+            />
+
+            <label htmlFor="register_confirm_password">Konfirmasi Password</label>
+            <input
+              id="register_confirm_password"
+              name="confirmPassword"
+              type="password"
+              required
+              aria-invalid={hasError}
+              aria-describedby={hasError ? 'auth-form-error' : undefined}
+              value={registerForm.confirmPassword}
+              onChange={onRegisterChange}
+              placeholder="Ulangi password"
+            />
+
+            <button type="submit" disabled={loading || checkingSession}>
+              {loading ? <LoadingSpinner label="Memproses..." /> : 'Daftar'}
+            </button>
+          </form>
+        )}
+
+        {error ? <p id="auth-form-error" className="alert error" role="alert">{error}</p> : null}
+        {successMessage ? <p className="alert success" role="status">{successMessage}</p> : null}
 
       if (form.password) {
         payload.password = form.password
@@ -2100,6 +2198,53 @@ function UserFormPage({
     >
       {error ? <p className="alert error">{error}</p> : null}
       {successMessage ? <p className="alert success">{successMessage}</p> : null}
+function DashboardPage({
+  authUser,
+  dashboardData,
+  dashboardLoading,
+  realtimeStatus,
+  realtimeLastUpdate,
+  error,
+  successMessage,
+  onRefresh,
+  onOpenNotifikasi,
+  onLogout,
+}) {
+  const cards = dashboardData?.cards || []
+  const primaryTable = dashboardData?.primary_table || {
+    title: 'Ringkasan',
+    columns: [],
+    rows: [],
+    note: '',
+  }
+
+  return (
+    <main className="dashboard-page" aria-busy={dashboardLoading}>
+      <section className="dashboard-shell">
+        <header className="dashboard-hero">
+          <div>
+            <p className="eyebrow">{dashboardTitles[authUser.role] || 'Dashboard'}</p>
+            <h1>{authUser.full_name || authUser.username}</h1>
+            <p className="subtitle dashboard-subtitle">
+              Masuk sebagai {roleLabels[authUser.role] || authUser.role}. Dashboard
+              ini menampilkan ringkasan data utama sesuai role Anda.
+            </p>
+          </div>
+
+          <div className="dashboard-actions">
+            <span className="role-pill">{roleLabels[authUser.role] || authUser.role}</span>
+            <span className={`role-pill realtime-pill ${realtimeStatus}`}>
+              MQTT: {realtimeStatus}
+              {realtimeLastUpdate ? ` | update ${formatCellValue(realtimeLastUpdate)}` : ''}
+            </span>
+            <button type="button" className="ghost-button" onClick={onRefresh}>
+              Muat Ulang
+            </button>
+            <button type="button" onClick={onLogout} aria-label="Logout dari aplikasi">
+              Logout
+            </button>
+          </div>
+        </header>
 
       {pageLoading ? (
         <section className="dashboard-panel">
@@ -2156,6 +2301,14 @@ function UserFormPage({
                     placeholder="contoh: user@sikap.local"
                   />
                 </div>
+        {error ? <p className="alert error" role="alert">{error}</p> : null}
+        {successMessage ? <p className="alert success" role="status">{successMessage}</p> : null}
+
+        {dashboardLoading ? (
+          <section className="dashboard-panel">
+            <LoadingSpinner label="Memuat data dashboard..." />
+          </section>
+        ) : null}
 
                 <div className="manual-field">
                   <label htmlFor="user_no_telp">No. Telepon</label>
@@ -2302,6 +2455,28 @@ function UserFormPage({
                     <div><dt>Kelas</dt><dd>{studentCandidate.kelas || '-'}</dd></div>
                     <div><dt>ID Card</dt><dd>{studentCandidate.id_card || '-'}</dd></div>
                   </dl>
+              {primaryTable.rows?.length ? (
+                <div className="table-wrapper">
+                  <table aria-label={primaryTable.title || 'Tabel dashboard'}>
+                    <thead>
+                      <tr>
+                        {primaryTable.columns.map((column) => (
+                          <th key={column}>{formatColumnLabel(column)}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {primaryTable.rows.map((row, index) => (
+                        <tr key={`${primaryTable.title}-${index}`}>
+                          {primaryTable.columns.map((column) => (
+                            <td key={`${index}-${column}`}>
+                              {formatCellValue(row[column])}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               ) : (
                 <div className="empty-state compact">
@@ -2335,6 +2510,76 @@ function UserFormPage({
   )
 }
 
+function NotificationPage({
+  notifications,
+  unreadCount,
+  loading,
+  error,
+  successMessage,
+  onRefresh,
+  onMarkAsRead,
+  onBackToDashboard,
+}) {
+  return (
+    <main className="dashboard-page">
+      <section className="dashboard-shell">
+        <header className="dashboard-hero">
+          <div>
+            <p className="eyebrow">F024</p>
+            <h1>Notifikasi</h1>
+            <p className="subtitle dashboard-subtitle">
+              Badge unread count, list notifikasi, dan klik item untuk tandai sudah dibaca.
+            </p>
+          </div>
+
+          <div className="dashboard-actions">
+            <span className="role-pill">Belum dibaca: {unreadCount}</span>
+            <button type="button" className="ghost-button" onClick={onRefresh} disabled={loading}>
+              {loading ? 'Memuat...' : 'Muat Ulang'}
+            </button>
+            <button type="button" className="ghost-button" onClick={onBackToDashboard}>
+              Kembali ke Dashboard
+            </button>
+          </div>
+        </header>
+
+        {error ? <p className="alert error">{error}</p> : null}
+        {successMessage ? <p className="alert success">{successMessage}</p> : null}
+
+        <section className="dashboard-panel">
+          {notifications.length ? (
+            <div className="notification-list">
+              {notifications.map((item) => (
+                <button
+                  type="button"
+                  key={item.id_notifikasi}
+                  className={item.is_read ? 'notification-item read' : 'notification-item unread'}
+                  onClick={() => onMarkAsRead(item)}
+                >
+                  <div className="notification-item-head">
+                    <strong>{item.judul || 'Notifikasi'}</strong>
+                    <span className={item.is_read ? 'chip-read' : 'chip-unread'}>
+                      {item.is_read ? 'Sudah Dibaca' : 'Belum Dibaca'}
+                    </span>
+                  </div>
+                  <p>{item.pesan || '-'}</p>
+                  <small>
+                    {item.created_at ? new Date(item.created_at).toLocaleString('id-ID') : '-'}
+                  </small>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <p>Belum ada notifikasi untuk akun ini.</p>
+            </div>
+          )}
+        </section>
+      </section>
+    </main>
+  )
+}
+
 function App() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -2361,6 +2606,9 @@ function App() {
   const [successMessage, setSuccessMessage] = useState('')
   const [authUser, setAuthUser] = useState(null)
   const [dashboardData, setDashboardData] = useState(null)
+  const [realtimeStatus, setRealtimeStatus] = useState('offline')
+  const [realtimeLastUpdate, setRealtimeLastUpdate] = useState(null)
+  const mqttRefreshTimerRef = useRef(null)
 
   const api = useMemo(
     () =>
@@ -2381,6 +2629,8 @@ function App() {
     localStorage.removeItem('sikap_user')
     setAuthUser(null)
     setDashboardData(null)
+    setNotifications([])
+    setUnreadCount(0)
   }
 
   const getAuthHeaders = () => {
@@ -2414,14 +2664,16 @@ function App() {
     return data.data
   }
 
-  const fetchDashboard = async () => {
+  const fetchDashboard = async ({ silent = false } = {}) => {
     const headers = getAuthHeaders()
 
     if (!headers) {
       throw new Error('Token tidak ditemukan.')
     }
 
-    setDashboardLoading(true)
+    if (!silent) {
+      setDashboardLoading(true)
+    }
     try {
       const { data } = await api.get('/dashboard', { headers })
 
@@ -2432,7 +2684,81 @@ function App() {
       setDashboardData(data.data)
       return data.data
     } finally {
-      setDashboardLoading(false)
+      if (!silent) {
+        setDashboardLoading(false)
+      }
+    }
+  }
+
+  const getNotificationPayload = (responseBody) => {
+    const candidates = [responseBody?.data, responseBody?.message]
+    return (
+      candidates.find(
+        (item) =>
+          item &&
+          typeof item === 'object' &&
+          (Array.isArray(item.notifikasi) || typeof item.unread_count === 'number'),
+      ) || {}
+    )
+  }
+
+  const requestNotifikasi = async (method, path = '', config = {}) => {
+    const candidates = [...new Set([`${apiBaseUrl}/notifikasi${path}`, `/api/notifikasi${path}`])]
+    let lastError = null
+
+    for (const url of candidates) {
+      try {
+        return await axios({
+          method,
+          url,
+          timeout: 10000,
+          ...config,
+        })
+      } catch (error) {
+        const status = error?.response?.status
+        if (status === 404 && url !== candidates[candidates.length - 1]) {
+          lastError = error
+          continue
+        }
+        throw error
+      }
+    }
+
+    throw lastError || new Error('Gagal mengakses endpoint notifikasi.')
+  }
+
+  const fetchNotifications = async ({ silent = false } = {}) => {
+    const headers = getAuthHeaders()
+
+    if (!headers) {
+      return
+    }
+
+    if (!silent) {
+      setNotificationLoading(true)
+    }
+
+    try {
+      const { data } = await requestNotifikasi('get', '', {
+        headers,
+        params: { page: 1, per_page: 20 },
+      })
+      const payload = getNotificationPayload(data)
+      setNotifications(Array.isArray(payload.notifikasi) ? payload.notifikasi : [])
+      setUnreadCount(Number(payload.unread_count || 0))
+    } catch (requestError) {
+      if (!silent) {
+        const apiMessage =
+          requestError?.response?.data?.message ||
+          requestError?.response?.data?.error ||
+          requestError?.message ||
+          'Gagal memuat notifikasi.'
+        setError(apiMessage)
+      }
+    } finally {
+      if (!silent) {
+        setNotificationLoading(false)
+      }
     }
   }
 
@@ -2455,6 +2781,7 @@ function App() {
         } catch (_dashboardError) {
           setError('Sesi login aktif, tetapi data dashboard belum berhasil dimuat.')
         }
+        await fetchNotifications({ silent: true })
       } catch (_err) {
         clearSession()
       } finally {
@@ -2464,6 +2791,38 @@ function App() {
 
     bootstrapSession()
   }, [])
+
+  useEffect(() => {
+    if (error) {
+      setToast({ type: 'error', message: error })
+      return
+    }
+
+    if (successMessage) {
+      setToast({ type: 'success', message: successMessage })
+    }
+  }, [error, successMessage])
+
+  useEffect(() => {
+    if (!toast?.message) {
+      return
+    }
+
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current)
+    }
+
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast(null)
+      toastTimerRef.current = null
+    }, 3500)
+
+    return () => {
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current)
+      }
+    }
+  }, [toast])
 
   const handleLoginChange = (event) => {
     const { name, value } = event.target
@@ -2512,6 +2871,7 @@ function App() {
       } catch (_dashboardError) {
         setError('Login berhasil, tetapi data dashboard belum berhasil dimuat.')
       }
+      await fetchNotifications({ silent: true })
 
       const displayName = user?.full_name || user?.username || loginForm.username
       setSuccessMessage(`Login berhasil. Selamat datang, ${displayName}.`)
@@ -2681,13 +3041,88 @@ function App() {
   const handleBackToUserManagement = () => {
     navigate(userManagementPath)
   }
+  useEffect(() => {
+    if (!authUser) {
+      setRealtimeStatus('offline')
+      setRealtimeLastUpdate(null)
+      return
+    }
+
+    let isActive = true
+    setRealtimeStatus('connecting')
+    const client = mqtt.connect(mqttWsUrl, {
+      reconnectPeriod: 5000,
+      connectTimeout: 10000,
+    })
+
+    client.on('connect', () => {
+      if (!isActive) {
+        return
+      }
+
+      setRealtimeStatus('connected')
+      client.subscribe(mqttTopicAbsensi, (subscribeError) => {
+        if (subscribeError && isActive) {
+          setRealtimeStatus('error')
+        }
+      })
+    })
+
+    client.on('reconnect', () => {
+      if (isActive) {
+        setRealtimeStatus('reconnecting')
+      }
+    })
+
+    client.on('close', () => {
+      if (isActive) {
+        setRealtimeStatus('offline')
+      }
+    })
+
+    client.on('error', () => {
+      if (isActive) {
+        setRealtimeStatus('error')
+      }
+    })
+
+    client.on('message', (topic) => {
+      if (topic !== mqttTopicAbsensi || !isActive) {
+        return
+      }
+
+      if (mqttRefreshTimerRef.current) {
+        window.clearTimeout(mqttRefreshTimerRef.current)
+      }
+
+      mqttRefreshTimerRef.current = window.setTimeout(async () => {
+        try {
+          await fetchDashboard({ silent: true })
+          if (isActive) {
+            setRealtimeLastUpdate(new Date().toISOString())
+          }
+        } catch (_err) {
+          // Silent: tetap tunggu event berikutnya.
+        }
+      }, 350)
+    })
+
+    return () => {
+      isActive = false
+      if (mqttRefreshTimerRef.current) {
+        window.clearTimeout(mqttRefreshTimerRef.current)
+        mqttRefreshTimerRef.current = null
+      }
+      client.end(true)
+    }
+  }, [authUser])
 
   if (checkingSession) {
     return (
       <main className="login-page">
         <section className="login-card">
           <h1>SIKAP</h1>
-          <p className="subtitle">Memeriksa sesi login dan menyiapkan dashboard...</p>
+          <LoadingSpinner label="Memeriksa sesi login dan menyiapkan dashboard..." />
         </section>
       </main>
     )
@@ -2754,6 +3189,8 @@ function App() {
               authUser={authUser}
               dashboardData={dashboardData}
               dashboardLoading={dashboardLoading}
+              realtimeStatus={realtimeStatus}
+              realtimeLastUpdate={realtimeLastUpdate}
               error={error}
               successMessage={successMessage}
               onRefresh={handleRefreshDashboard}
@@ -2793,6 +3230,7 @@ function App() {
               api={api}
               getAuthHeaders={getAuthHeaders}
               onBackToDashboard={handleBackToDashboard}
+              onOpenNotifikasi={handleOpenNotifikasi}
               onLogout={handleLogout}
             />
           ) : (
@@ -2815,6 +3253,19 @@ function App() {
             ) : (
               <Navigate to="/dashboard" replace />
             )
+        path="/notifikasi"
+        element={
+          authUser ? (
+            <NotificationPage
+              notifications={notifications}
+              unreadCount={unreadCount}
+              loading={notificationLoading}
+              error={error}
+              successMessage={successMessage}
+              onRefresh={handleRefreshNotifications}
+              onMarkAsRead={handleMarkNotificationAsRead}
+              onBackToDashboard={handleBackToDashboard}
+            />
           ) : (
             <Navigate to="/login" replace />
           )
@@ -2903,6 +3354,8 @@ function App() {
             <Navigate to="/login" replace />
           )
         }
+        path="*"
+        element={<Navigate to={authUser ? '/dashboard' : '/login'} replace />}
       />
       <Route path="*" element={<Navigate to={authUser ? '/dashboard' : '/login'} replace />} />
     </Routes>
