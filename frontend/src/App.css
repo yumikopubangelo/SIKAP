@@ -337,6 +337,27 @@ button:disabled {
   font-weight: 700;
 }
 
+.realtime-pill {
+  text-transform: capitalize;
+}
+
+.realtime-pill.connected {
+  background: rgba(58, 185, 124, 0.2);
+  border-color: rgba(58, 185, 124, 0.45);
+}
+
+.realtime-pill.connecting,
+.realtime-pill.reconnecting {
+  background: rgba(255, 214, 102, 0.25);
+  border-color: rgba(255, 214, 102, 0.45);
+}
+
+.realtime-pill.offline,
+.realtime-pill.error {
+  background: rgba(239, 103, 103, 0.2);
+  border-color: rgba(239, 103, 103, 0.45);
+}
+
 .identity-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

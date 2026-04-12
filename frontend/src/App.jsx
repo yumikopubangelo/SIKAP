@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
+import mqtt from 'mqtt'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import './App.css'
 
 const apiBaseUrl =
   (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/$/, '')
+const mqttWsUrl = import.meta.env.VITE_MQTT_WS_URL || 'ws://localhost:9001'
+const mqttTopicAbsensi = import.meta.env.VITE_MQTT_TOPIC_ABSENSI || 'absensi/realtime'
 
 const roleOptions = [
   { value: 'admin', label: 'Admin' },
@@ -276,6 +279,8 @@ function DashboardPage({
   authUser,
   dashboardData,
   dashboardLoading,
+  realtimeStatus,
+  realtimeLastUpdate,
   error,
   successMessage,
   onRefresh,
@@ -304,6 +309,10 @@ function DashboardPage({
 
           <div className="dashboard-actions">
             <span className="role-pill">{roleLabels[authUser.role] || authUser.role}</span>
+            <span className={`role-pill realtime-pill ${realtimeStatus}`}>
+              MQTT: {realtimeStatus}
+              {realtimeLastUpdate ? ` | update ${formatCellValue(realtimeLastUpdate)}` : ''}
+            </span>
             <button type="button" className="ghost-button" onClick={onRefresh}>
               Muat Ulang
             </button>
@@ -429,8 +438,9 @@ function App() {
   const [successMessage, setSuccessMessage] = useState('')
   const [authUser, setAuthUser] = useState(null)
   const [dashboardData, setDashboardData] = useState(null)
-  const [toast, setToast] = useState(null)
-  const toastTimerRef = useRef(null)
+  const [realtimeStatus, setRealtimeStatus] = useState('offline')
+  const [realtimeLastUpdate, setRealtimeLastUpdate] = useState(null)
+  const mqttRefreshTimerRef = useRef(null)
 
   const api = useMemo(
     () =>
@@ -484,14 +494,16 @@ function App() {
     return data.data
   }
 
-  const fetchDashboard = async () => {
+  const fetchDashboard = async ({ silent = false } = {}) => {
     const headers = getAuthHeaders()
 
     if (!headers) {
       throw new Error('Token tidak ditemukan.')
     }
 
-    setDashboardLoading(true)
+    if (!silent) {
+      setDashboardLoading(true)
+    }
     try {
       const { data } = await api.get('/dashboard', { headers })
 
@@ -502,7 +514,9 @@ function App() {
       setDashboardData(data.data)
       return data.data
     } finally {
-      setDashboardLoading(false)
+      if (!silent) {
+        setDashboardLoading(false)
+      }
     }
   }
 
@@ -740,6 +754,82 @@ function App() {
     }
   }
 
+  useEffect(() => {
+    if (!authUser) {
+      setRealtimeStatus('offline')
+      setRealtimeLastUpdate(null)
+      return
+    }
+
+    let isActive = true
+    setRealtimeStatus('connecting')
+    const client = mqtt.connect(mqttWsUrl, {
+      reconnectPeriod: 5000,
+      connectTimeout: 10000,
+    })
+
+    client.on('connect', () => {
+      if (!isActive) {
+        return
+      }
+
+      setRealtimeStatus('connected')
+      client.subscribe(mqttTopicAbsensi, (subscribeError) => {
+        if (subscribeError && isActive) {
+          setRealtimeStatus('error')
+        }
+      })
+    })
+
+    client.on('reconnect', () => {
+      if (isActive) {
+        setRealtimeStatus('reconnecting')
+      }
+    })
+
+    client.on('close', () => {
+      if (isActive) {
+        setRealtimeStatus('offline')
+      }
+    })
+
+    client.on('error', () => {
+      if (isActive) {
+        setRealtimeStatus('error')
+      }
+    })
+
+    client.on('message', (topic) => {
+      if (topic !== mqttTopicAbsensi || !isActive) {
+        return
+      }
+
+      if (mqttRefreshTimerRef.current) {
+        window.clearTimeout(mqttRefreshTimerRef.current)
+      }
+
+      mqttRefreshTimerRef.current = window.setTimeout(async () => {
+        try {
+          await fetchDashboard({ silent: true })
+          if (isActive) {
+            setRealtimeLastUpdate(new Date().toISOString())
+          }
+        } catch (_err) {
+          // Silent: tetap tunggu event berikutnya.
+        }
+      }, 350)
+    })
+
+    return () => {
+      isActive = false
+      if (mqttRefreshTimerRef.current) {
+        window.clearTimeout(mqttRefreshTimerRef.current)
+        mqttRefreshTimerRef.current = null
+      }
+      client.end(true)
+    }
+  }, [authUser])
+
   if (checkingSession) {
     return (
       <main className="login-page">
@@ -754,87 +844,84 @@ function App() {
   const authMode = location.pathname === '/register' ? 'register' : 'login'
 
   return (
-    <>
-      <div className="toast-layer" aria-live="assertive" aria-atomic="true">
-        <Toast toast={toast} onClose={() => setToast(null)} />
-      </div>
-      <Routes>
-        <Route
-          path="/"
-          element={<Navigate to={authUser ? '/dashboard' : '/login'} replace />}
-        />
-        <Route
-          path="/login"
-          element={
-            authUser ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <AuthPage
-                mode={authMode}
-                loading={loading}
-                checkingSession={checkingSession}
-                loginForm={loginForm}
-                registerForm={registerForm}
-                error={error}
-                successMessage={successMessage}
-                onLoginChange={handleLoginChange}
-                onRegisterChange={handleRegisterChange}
-                onLogin={handleLogin}
-                onRegister={handleRegister}
-                onSwitchMode={handleSwitchMode}
-                apiBaseUrlValue={apiBaseUrl}
-              />
-            )
-          }
-        />
-        <Route
-          path="/register"
-          element={
-            authUser ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <AuthPage
-                mode={authMode}
-                loading={loading}
-                checkingSession={checkingSession}
-                loginForm={loginForm}
-                registerForm={registerForm}
-                error={error}
-                successMessage={successMessage}
-                onLoginChange={handleLoginChange}
-                onRegisterChange={handleRegisterChange}
-                onLogin={handleLogin}
-                onRegister={handleRegister}
-                onSwitchMode={handleSwitchMode}
-                apiBaseUrlValue={apiBaseUrl}
-              />
-            )
-          }
-        />
-        <Route
-          path="/dashboard"
-          element={
-            authUser ? (
-              <DashboardPage
-                authUser={authUser}
-                dashboardData={dashboardData}
-                dashboardLoading={dashboardLoading}
-                error={error}
-                successMessage={successMessage}
-                onRefresh={handleRefreshDashboard}
-                onLogout={handleLogout}
-              />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
-        <Route
-          path="*"
-          element={<Navigate to={authUser ? '/dashboard' : '/login'} replace />}
-        />
-      </Routes>
-    </>
+    <Routes>
+      <Route
+        path="/"
+        element={<Navigate to={authUser ? '/dashboard' : '/login'} replace />}
+      />
+      <Route
+        path="/login"
+        element={
+          authUser ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <AuthPage
+              mode={authMode}
+              loading={loading}
+              checkingSession={checkingSession}
+              loginForm={loginForm}
+              registerForm={registerForm}
+              error={error}
+              successMessage={successMessage}
+              onLoginChange={handleLoginChange}
+              onRegisterChange={handleRegisterChange}
+              onLogin={handleLogin}
+              onRegister={handleRegister}
+              onSwitchMode={handleSwitchMode}
+              apiBaseUrlValue={apiBaseUrl}
+            />
+          )
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          authUser ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <AuthPage
+              mode={authMode}
+              loading={loading}
+              checkingSession={checkingSession}
+              loginForm={loginForm}
+              registerForm={registerForm}
+              error={error}
+              successMessage={successMessage}
+              onLoginChange={handleLoginChange}
+              onRegisterChange={handleRegisterChange}
+              onLogin={handleLogin}
+              onRegister={handleRegister}
+              onSwitchMode={handleSwitchMode}
+              apiBaseUrlValue={apiBaseUrl}
+            />
+          )
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          authUser ? (
+            <DashboardPage
+              authUser={authUser}
+              dashboardData={dashboardData}
+              dashboardLoading={dashboardLoading}
+              realtimeStatus={realtimeStatus}
+              realtimeLastUpdate={realtimeLastUpdate}
+              error={error}
+              successMessage={successMessage}
+              onRefresh={handleRefreshDashboard}
+              onLogout={handleLogout}
+            />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="*"
+        element={<Navigate to={authUser ? '/dashboard' : '/login'} replace />}
+      />
+    </Routes>
   )
 }
 
