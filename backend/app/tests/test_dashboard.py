@@ -133,6 +133,9 @@ def test_admin_dashboard_returns_cards_and_rows(client, app):
     assert body["role"] == "admin"
     assert len(body["cards"]) >= 4
     assert len(body["primary_table"]["rows"]) >= 1
+    assert len(body["charts"]["attendance_trend"]["rows"]) == 7
+    assert any(row["total"] >= 1 for row in body["charts"]["attendance_trend"]["rows"])
+    assert body["charts"]["status_distribution"]["rows"][0]["status"] == "tepat_waktu"
 
 
 def test_wali_dashboard_returns_owned_students(client, app):
@@ -158,6 +161,8 @@ def test_siswa_dashboard_returns_history(client, app):
     body = response.get_json()["data"]
     assert body["role"] == "siswa"
     assert body["primary_table"]["rows"][0]["status"] == "tepat_waktu"
+    assert len(body["charts"]["attendance_trend"]["rows"]) == 7
+    assert body["charts"]["status_distribution"]["rows"][0]["label"] == "Tepat Waktu"
 
 
 def test_orangtua_dashboard_maps_child_from_phone(client, app):
