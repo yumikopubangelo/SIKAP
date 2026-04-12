@@ -22,6 +22,13 @@ from ..utils.validators import (
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/v1/auth")
 
 
+def _serialize_student_candidate(student):
+    return {
+        **student.to_dict(),
+        "kelas": student.kelas.nama_kelas if student.kelas else None,
+    }
+
+
 @auth_bp.post("/login")
 def login():
     payload, errors = validate_login_payload(request.get_json(silent=True))
@@ -58,7 +65,7 @@ def me(current_user):
 
 
 @auth_bp.get("/student-candidates")
-@roles_required("admin")
+@roles_required("admin", "guru_piket")
 def student_candidates():
     params, errors = validate_student_lookup_params(request.args)
     if errors:
@@ -73,7 +80,7 @@ def student_candidates():
 
     return success_response(
         data={
-            "student": student.to_dict(),
+            "student": _serialize_student_candidate(student),
             "has_account": student.id_user is not None,
         },
         message="Data siswa berhasil ditemukan.",

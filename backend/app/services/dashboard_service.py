@@ -1,9 +1,28 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import case, distinct, func
 from sqlalchemy.orm import joinedload
 
 from ..models import Absensi, Kelas, Perangkat, SesiSholat, Siswa, User
+
+
+STATUS_CHART_ORDER = (
+    "tepat_waktu",
+    "terlambat",
+    "izin",
+    "sakit",
+    "alpha",
+    "haid",
+)
+
+STATUS_CHART_LABELS = {
+    "tepat_waktu": "Tepat Waktu",
+    "terlambat": "Terlambat",
+    "izin": "Izin",
+    "sakit": "Sakit",
+    "alpha": "Alpha",
+    "haid": "Haid",
+}
 
 
 def _today() -> date:
@@ -53,11 +72,109 @@ def _today_absensi():
 def _empty_dashboard(note: str, title: str = "Tabel Utama", columns: list[str] | None = None):
     return {
         "cards": [],
+        "charts": {
+            "attendance_trend": {
+                "title": "Trend Kehadiran 7 Hari Terakhir",
+                "rows": [],
+                "note": note,
+            },
+            "status_distribution": {
+                "title": "Distribusi Status 7 Hari Terakhir",
+                "rows": [],
+                "note": note,
+            },
+        },
         "primary_table": {
             "title": title,
             "columns": columns or [],
             "rows": [],
             "note": note,
+        },
+    }
+
+
+def _chart_window(days: int = 7) -> tuple[date, date]:
+    end_date = _today()
+    start_date = end_date - timedelta(days=days - 1)
+    return start_date, end_date
+
+
+def _iter_dates(start_date: date, end_date: date):
+    current = start_date
+    while current <= end_date:
+        yield current
+        current += timedelta(days=1)
+
+
+def _build_chart_payload(
+    base_query,
+    *,
+    trend_title: str = "Trend Kehadiran 7 Hari Terakhir",
+    status_title: str = "Distribusi Status 7 Hari Terakhir",
+) -> dict:
+    start_date, end_date = _chart_window()
+    scoped_query = base_query.join(Absensi.sesi).filter(
+        SesiSholat.tanggal >= start_date,
+        SesiSholat.tanggal <= end_date,
+    )
+
+    trend_rows = (
+        scoped_query.with_entities(
+            SesiSholat.tanggal.label("tanggal"),
+            func.count(Absensi.id_absensi).label("total"),
+            func.sum(case((Absensi.status == "tepat_waktu", 1), else_=0)).label("tepat_waktu"),
+            func.sum(case((Absensi.status == "terlambat", 1), else_=0)).label("terlambat"),
+        )
+        .group_by(SesiSholat.tanggal)
+        .order_by(SesiSholat.tanggal.asc())
+        .all()
+    )
+    trend_lookup = {
+        row.tanggal: {
+            "total": int(row.total or 0),
+            "tepat_waktu": int(row.tepat_waktu or 0),
+            "terlambat": int(row.terlambat or 0),
+        }
+        for row in trend_rows
+    }
+
+    status_rows = (
+        scoped_query.with_entities(
+            Absensi.status.label("status"),
+            func.count(Absensi.id_absensi).label("value"),
+        )
+        .group_by(Absensi.status)
+        .all()
+    )
+    status_lookup = {row.status: int(row.value or 0) for row in status_rows}
+
+    return {
+        "attendance_trend": {
+            "title": trend_title,
+            "rows": [
+                {
+                    "date": day.isoformat(),
+                    "label": f"{day.day}/{day.month}",
+                    "total": trend_lookup.get(day, {}).get("total", 0),
+                    "tepat_waktu": trend_lookup.get(day, {}).get("tepat_waktu", 0),
+                    "terlambat": trend_lookup.get(day, {}).get("terlambat", 0),
+                }
+                for day in _iter_dates(start_date, end_date)
+            ],
+            "note": "Belum ada absensi pada rentang 7 hari terakhir.",
+        },
+        "status_distribution": {
+            "title": status_title,
+            "rows": [
+                {
+                    "status": status,
+                    "label": STATUS_CHART_LABELS[status],
+                    "value": status_lookup[status],
+                }
+                for status in STATUS_CHART_ORDER
+                if status_lookup.get(status, 0) > 0
+            ],
+            "note": "Belum ada distribusi status untuk ditampilkan.",
         },
     }
 
@@ -75,6 +192,11 @@ def _admin_payload() -> dict:
                 "value": Perangkat.query.filter_by(status="online").count(),
             },
         ],
+        "charts": _build_chart_payload(
+            Absensi.query,
+            trend_title="Trend Kehadiran Sekolah",
+            status_title="Distribusi Status Sekolah",
+        ),
         "primary_table": {
             "title": "Aktivitas Absensi Terkini",
             "columns": ["timestamp", "nama_siswa", "kelas", "waktu_sholat", "status", "device_id"],
@@ -113,6 +235,11 @@ def _kepsek_payload() -> dict:
                 "value": today_query.filter(Absensi.status == "terlambat").count(),
             },
         ],
+        "charts": _build_chart_payload(
+            Absensi.query,
+            trend_title="Trend Kehadiran Sekolah",
+            status_title="Distribusi Status Sekolah",
+        ),
         "primary_table": {
             "title": "Ringkasan Kelas Hari Ini",
             "columns": ["kelas", "siswa_hadir", "total_tap", "terlambat"],
@@ -184,6 +311,11 @@ def _wali_payload(current_user: User) -> dict:
             {"key": "hadir_hari_ini", "label": "Hadir Hari Ini", "value": int(hadir_hari_ini)},
             {"key": "terlambat_hari_ini", "label": "Terlambat Hari Ini", "value": int(terlambat_hari_ini)},
         ],
+        "charts": _build_chart_payload(
+            Absensi.query.join(Absensi.siswa).filter(Siswa.id_kelas.in_(kelas_ids)),
+            trend_title="Trend Kehadiran Kelas",
+            status_title="Distribusi Status Kelas",
+        ),
         "primary_table": {
             "title": "Rekap Siswa Kelas",
             "columns": ["nisn", "nama", "kelas", "total_hadir", "total_terlambat"],
@@ -210,6 +342,11 @@ def _guru_piket_payload() -> dict:
             {"key": "terlambat", "label": "Terlambat", "value": today_query.filter(Absensi.status == "terlambat").count()},
             {"key": "perangkat_online", "label": "Perangkat Online", "value": Perangkat.query.filter_by(status="online").count()},
         ],
+        "charts": _build_chart_payload(
+            Absensi.query,
+            trend_title="Trend Tap Kehadiran",
+            status_title="Distribusi Status Kehadiran",
+        ),
         "primary_table": {
             "title": "Tap RFID Terkini",
             "columns": ["timestamp", "nama_siswa", "kelas", "waktu_sholat", "status", "device_id"],
@@ -252,6 +389,11 @@ def _siswa_payload(student: Siswa | None) -> dict:
             {"key": "terlambat", "label": "Terlambat", "value": monthly_query.filter(Absensi.status == "terlambat").count()},
             {"key": "status_terakhir", "label": "Status Terakhir", "value": latest.status if latest else "belum_ada"},
         ],
+        "charts": _build_chart_payload(
+            Absensi.query.filter(Absensi.id_siswa == student.id_siswa),
+            trend_title="Trend Kehadiran Pribadi",
+            status_title="Distribusi Status Pribadi",
+        ),
         "primary_table": {
             "title": "Riwayat Absensi Pribadi",
             "columns": ["tanggal", "timestamp", "waktu_sholat", "status"],

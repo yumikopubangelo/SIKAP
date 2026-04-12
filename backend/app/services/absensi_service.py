@@ -66,7 +66,7 @@ def serialize_absensi(absensi: Absensi, include_audit: bool = False) -> dict:
     if include_audit:
         audit_logs = (
             AuditLog.query.filter_by(tabel="absensi", record_pk=str(absensi.id_absensi))
-            .order_by(AuditLog.timestamp.desc())
+            .order_by(AuditLog.timestamp.desc(), AuditLog.id_log.desc())
             .all()
         )
         data["audit_log"] = [_serialize_audit_log(item) for item in audit_logs]
