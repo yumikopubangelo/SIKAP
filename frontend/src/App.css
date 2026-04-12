@@ -143,6 +143,14 @@ button:hover:not(:disabled),
   transform: translateY(-1px);
 }
 
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+.tab:focus-visible {
+  outline: 3px solid rgba(20, 119, 184, 0.35);
+  outline-offset: 2px;
+}
+
 button:disabled {
   opacity: 0.7;
   cursor: wait;
@@ -181,6 +189,97 @@ button:disabled {
   margin: 1rem 0 0;
   font-size: 0.82rem;
   color: #53687a;
+}
+
+.loading-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #2c5168;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.loading-spinner {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  border: 2px solid rgba(13, 92, 162, 0.22);
+  border-top-color: #0d5ca2;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.toast-layer {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.toast {
+  min-width: 260px;
+  max-width: min(92vw, 420px);
+  border-radius: 12px;
+  border: 1px solid transparent;
+  box-shadow: 0 14px 30px rgba(19, 41, 61, 0.2);
+  padding: 0.75rem 0.85rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.7rem;
+  pointer-events: auto;
+  animation: toast-in 0.2s ease-out;
+}
+
+.toast p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.toast.error {
+  background: #fff2f4;
+  border-color: #f8b9c4;
+  color: #a41d37;
+}
+
+.toast.success {
+  background: #edf9f1;
+  border-color: #b7e2c7;
+  color: #126d38;
+}
+
+.toast-close {
+  margin: 0;
+  width: auto;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  background: #fff;
+  color: #27465a;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .dashboard-page {
@@ -255,6 +354,27 @@ button:disabled {
   border: 1px solid rgba(255, 255, 255, 0.24);
   font-size: 0.85rem;
   font-weight: 700;
+}
+
+.realtime-pill {
+  text-transform: capitalize;
+}
+
+.realtime-pill.connected {
+  background: rgba(58, 185, 124, 0.2);
+  border-color: rgba(58, 185, 124, 0.45);
+}
+
+.realtime-pill.connecting,
+.realtime-pill.reconnecting {
+  background: rgba(255, 214, 102, 0.25);
+  border-color: rgba(255, 214, 102, 0.45);
+}
+
+.realtime-pill.offline,
+.realtime-pill.error {
+  background: rgba(239, 103, 103, 0.2);
+  border-color: rgba(239, 103, 103, 0.45);
 }
 
 .identity-strip {
@@ -469,5 +589,16 @@ tbody tr:hover {
 
   .metric-card strong {
     font-size: 1.6rem;
+  }
+
+  .toast-layer {
+    top: auto;
+    right: 0.75rem;
+    left: 0.75rem;
+    bottom: 0.75rem;
+  }
+
+  .toast {
+    max-width: 100%;
   }
 }
