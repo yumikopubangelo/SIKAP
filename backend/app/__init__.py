@@ -1,10 +1,12 @@
 import os
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
+from prometheus_flask_instrumentator import Instrumentator
 
 from .extensions import cors, db, jwt, migrate
 from .routes import register_blueprints
+from .routes.metrics import refresh_custom_metrics
 from .services.auth_service import is_token_revoked
 from .utils.response import error_response
 
@@ -27,6 +29,7 @@ def create_app(config_name: str | None = None) -> Flask:
     register_extensions(app)
     register_routes(app)
     register_shell_context(app)
+    register_prometheus(app)
 
     with app.app_context():
         from .models import load_models
@@ -116,3 +119,26 @@ def register_jwt_handlers() -> None:
     @jwt.revoked_token_loader
     def revoked_token_callback(_jwt_header, _jwt_payload):
         return error_response("Token sudah logout dan tidak bisa dipakai lagi.", 401)
+
+
+def register_prometheus(app: Flask) -> None:
+    """Instrument Flask with Prometheus metrics + custom SIKAP gauges."""
+    try:
+        instrumentator = Instrumentator(
+            should_group_status_codes=True,
+            should_ignore_untemplated=True,
+            excluded_handlers=["/health"],
+        )
+        instrumentator.instrument(app).expose(app, endpoint="/metrics")
+
+        @app.before_request
+        def _refresh_metrics_on_scrape():
+            if request.path == "/metrics":
+                refresh_custom_metrics(app)
+
+    except Exception:
+        # Jangan crash app jika prometheus belum terinstall di environment lokal.
+        app.logger.warning(
+            "prometheus-flask-instrumentator tidak tersedia. "
+            "Endpoint /metrics tidak aktif."
+        )
