@@ -1,7 +1,7 @@
 from datetime import date, time
 
 from app.extensions import db
-from app.models import AuditLog, Kelas, Siswa, StatusAbsensi, User, WaktuSholat
+from app.models import AuditLog, Kelas, Perangkat, Siswa, StatusAbsensi, User, WaktuSholat
 
 
 def seed_absensi_manual_data():
@@ -72,6 +72,92 @@ def seed_absensi_manual_data():
     }
 
 
+def seed_absensi_rfid_data():
+    statuses = [
+        StatusAbsensi(kode="tepat_waktu", deskripsi="Tepat Waktu"),
+        StatusAbsensi(kode="terlambat", deskripsi="Terlambat"),
+        StatusAbsensi(kode="alpha", deskripsi="Alpha"),
+        StatusAbsensi(kode="haid", deskripsi="Haid"),
+        StatusAbsensi(kode="izin", deskripsi="Izin"),
+        StatusAbsensi(kode="sakit", deskripsi="Sakit"),
+    ]
+    db.session.add_all(statuses)
+
+    admin = User(
+        username="admin_rfid",
+        full_name="Admin RFID",
+        email="admin.rfid@sikap.local",
+        role="admin",
+    )
+    admin.set_password("admin123")
+
+    siswa_user_1 = User(
+        username="siswa_rfid_1",
+        full_name="Siswa RFID 1",
+        email="siswa.rfid1@sikap.local",
+        role="siswa",
+    )
+    siswa_user_1.set_password("siswa123")
+
+    siswa_user_2 = User(
+        username="siswa_rfid_2",
+        full_name="Siswa RFID 2",
+        email="siswa.rfid2@sikap.local",
+        role="siswa",
+    )
+    siswa_user_2.set_password("siswa123")
+
+    db.session.add_all([admin, siswa_user_1, siswa_user_2])
+    db.session.flush()
+
+    kelas = Kelas(
+        nama_kelas="XI RPL 3",
+        tingkat="XI",
+        jurusan="RPL",
+        tahun_ajaran="2025/2026",
+        id_wali=admin.id_user,
+    )
+    db.session.add(kelas)
+    db.session.flush()
+
+    siswa_1 = Siswa(
+        id_user=siswa_user_1.id_user,
+        nisn="5000000111",
+        nama="Siswa RFID 1",
+        id_card="CARD-RFID-001",
+        id_kelas=kelas.id_kelas,
+    )
+    siswa_2 = Siswa(
+        id_user=siswa_user_2.id_user,
+        nisn="5000000222",
+        nama="Siswa RFID 2",
+        id_card="CARD-RFID-002",
+        id_kelas=kelas.id_kelas,
+    )
+    waktu_sholat = WaktuSholat(
+        nama_sholat="Dzuhur",
+        waktu_adzan=time(12, 0, 0),
+        waktu_iqamah=time(12, 10, 0),
+        waktu_selesai=time(12, 30, 0),
+    )
+    perangkat = Perangkat(
+        device_id="ESP-001",
+        nama_device="Gerbang Masjid",
+        lokasi="Masjid Utama",
+        api_key="device-secret",
+        status="offline",
+    )
+
+    db.session.add_all([siswa_1, siswa_2, waktu_sholat, perangkat])
+    db.session.commit()
+    return {
+        "device_id": perangkat.device_id,
+        "api_key": perangkat.api_key,
+        "uid_card_1": siswa_1.id_card,
+        "uid_card_2": siswa_2.id_card,
+    }
+
+
 def login(client, username, password):
     response = client.post(
         "/api/v1/auth/login",
@@ -79,6 +165,147 @@ def login(client, username, password):
     )
     body = response.get_json()
     return body["data"]["access_token"]
+
+
+def test_rfid_device_can_create_absensi(client, app):
+    with app.app_context():
+        seeded = seed_absensi_rfid_data()
+
+    response = client.post(
+        "/api/v1/absensi",
+        headers={"X-API-Key": seeded["api_key"]},
+        json={
+            "uid_card": seeded["uid_card_1"],
+            "device_id": seeded["device_id"],
+            "timestamp": f"{date.today().isoformat()}T12:05:00",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.get_json()["data"]
+    assert body["status"] == "tepat_waktu"
+    assert body["device_id"] == seeded["device_id"]
+    assert body["color"] == "green"
+    assert body["verified_by_guru_piket"] is False
+    assert body["audit_log_id"] >= 1
+
+    with app.app_context():
+        perangkat = db.session.get(Perangkat, seeded["device_id"])
+        assert perangkat.status == "online"
+        assert perangkat.last_ping is not None
+        assert AuditLog.query.count() == 1
+
+
+def test_rfid_device_rejects_duplicate_absensi_in_same_session(client, app):
+    with app.app_context():
+        seeded = seed_absensi_rfid_data()
+
+    first_payload = {
+        "uid_card": seeded["uid_card_1"],
+        "device_id": seeded["device_id"],
+        "timestamp": f"{date.today().isoformat()}T12:05:00",
+    }
+    headers = {"X-API-Key": seeded["api_key"]}
+
+    first_response = client.post("/api/v1/absensi", headers=headers, json=first_payload)
+    assert first_response.status_code == 201
+
+    duplicate_response = client.post(
+        "/api/v1/absensi",
+        headers=headers,
+        json={**first_payload, "timestamp": f"{date.today().isoformat()}T12:06:00"},
+    )
+
+    assert duplicate_response.status_code == 409
+    assert duplicate_response.get_json()["message"] == "Siswa sudah tercatat hadir untuk sesi ini."
+
+
+def test_rfid_device_requires_valid_api_key(client, app):
+    with app.app_context():
+        seeded = seed_absensi_rfid_data()
+
+    response = client.post(
+        "/api/v1/absensi",
+        headers={"X-API-Key": "wrong-key"},
+        json={
+            "uid_card": seeded["uid_card_1"],
+            "device_id": seeded["device_id"],
+            "timestamp": f"{date.today().isoformat()}T12:05:00",
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.get_json()["message"] == "Perangkat tidak valid atau API key salah."
+
+
+def test_rfid_device_rejects_tap_outside_active_session(client, app):
+    with app.app_context():
+        seeded = seed_absensi_rfid_data()
+
+    response = client.post(
+        "/api/v1/absensi",
+        headers={"X-API-Key": seeded["api_key"]},
+        json={
+            "uid_card": seeded["uid_card_1"],
+            "device_id": seeded["device_id"],
+            "timestamp": f"{date.today().isoformat()}T10:00:00",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.get_json()["message"] == "Tidak ada sesi sholat aktif untuk timestamp ini."
+
+
+def test_absensi_list_is_available_and_scoped_by_role(client, app):
+    with app.app_context():
+        seeded = seed_absensi_rfid_data()
+
+    headers = {"X-API-Key": seeded["api_key"]}
+    response_1 = client.post(
+        "/api/v1/absensi",
+        headers=headers,
+        json={
+            "uid_card": seeded["uid_card_1"],
+            "device_id": seeded["device_id"],
+            "timestamp": f"{date.today().isoformat()}T12:05:00",
+        },
+    )
+    assert response_1.status_code == 201
+
+    response_2 = client.post(
+        "/api/v1/absensi",
+        headers=headers,
+        json={
+            "uid_card": seeded["uid_card_2"],
+            "device_id": seeded["device_id"],
+            "timestamp": f"{date.today().isoformat()}T12:15:00",
+        },
+    )
+    assert response_2.status_code == 201
+
+    admin_token = login(client, "admin_rfid", "admin123")
+    admin_response = client.get(
+        "/api/v1/absensi?status=terlambat",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert admin_response.status_code == 200
+    admin_body = admin_response.get_json()
+    assert admin_body["pagination"]["total_items"] == 1
+    assert len(admin_body["data"]) == 1
+    assert admin_body["data"][0]["status"] == "terlambat"
+
+    siswa_token = login(client, "siswa_rfid_1", "siswa123")
+    siswa_response = client.get(
+        "/api/v1/absensi",
+        headers={"Authorization": f"Bearer {siswa_token}"},
+    )
+
+    assert siswa_response.status_code == 200
+    siswa_body = siswa_response.get_json()
+    assert siswa_body["pagination"]["total_items"] == 1
+    assert len(siswa_body["data"]) == 1
+    assert siswa_body["data"][0]["siswa"]["nisn"] == "5000000111"
 
 
 def test_guru_piket_can_create_manual_absensi(client, app):

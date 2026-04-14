@@ -1,15 +1,19 @@
-from flask import Blueprint, request
+from flask import Blueprint, jsonify, request
 
 from ..middleware.auth_middleware import inject_current_user
 from ..services.absensi_service import (
     AbsensiServiceError,
+    create_rfid_absensi,
+    list_absensi,
     create_manual_absensi,
     update_absensi,
 )
 from ..utils.response import error_response, success_response
 from ..utils.validators import (
+    validate_absensi_list_params,
     validate_absensi_update_payload,
     validate_manual_absensi_payload,
+    validate_rfid_absensi_payload,
 )
 
 
@@ -20,6 +24,52 @@ def _ensure_guru_piket(current_user):
     if current_user.role != "guru_piket":
         return error_response("Hanya guru piket yang dapat mengakses endpoint ini.", 403)
     return None
+
+
+@absensi_bp.post("")
+def create_rfid():
+    payload, errors = validate_rfid_absensi_payload(request.get_json(silent=True))
+    if errors:
+        return error_response("Payload absensi RFID tidak valid.", 400, errors=errors)
+
+    try:
+        data, audit_log_id = create_rfid_absensi(
+            payload,
+            request.headers.get("X-API-Key"),
+        )
+    except AbsensiServiceError as exc:
+        return error_response(exc.message, exc.status_code, errors=exc.errors)
+
+    return success_response(
+        data=data | {"audit_log_id": audit_log_id},
+        message="Absensi RFID berhasil dicatat.",
+        status_code=201,
+    )
+
+
+@absensi_bp.get("")
+@inject_current_user
+def list_absensi_route(current_user):
+    params, errors = validate_absensi_list_params(request.args)
+    if errors:
+        return error_response("Parameter list absensi tidak valid.", 400, errors=errors)
+
+    try:
+        data, pagination = list_absensi(params, current_user)
+    except AbsensiServiceError as exc:
+        return error_response(exc.message, exc.status_code, errors=exc.errors)
+
+    return (
+        jsonify(
+            {
+                "success": True,
+                "message": "Daftar absensi berhasil diambil.",
+                "data": data,
+                "pagination": pagination,
+            }
+        ),
+        200,
+    )
 
 
 @absensi_bp.post("/manual")
