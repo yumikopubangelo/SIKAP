@@ -7,6 +7,7 @@ import './App.css'
 import {
   apiBaseUrl,
   manualInputPath,
+  monitoringPath,
   mqttTopicAbsensi,
   mqttWsUrl,
   prayerTimePath,
@@ -19,6 +20,7 @@ import { LoadingSpinner, Toast } from './components/Common'
 import AuthPage from './pages/AuthPage'
 import DashboardPage from './pages/DashboardPage'
 import ManualInputPage from './pages/ManualInputPage'
+import MonitoringPage from './pages/MonitoringPage'
 import NotificationPage from './pages/NotificationPage'
 import PrayerTimeSettingsPage from './pages/PrayerTimeSettingsPage'
 import ProfilePage from './pages/ProfilePage'
@@ -530,6 +532,12 @@ function App() {
     navigate(userManagementPath)
   }
 
+  const handleOpenMonitoring = () => {
+    setError('')
+    setSuccessMessage('')
+    navigate(monitoringPath)
+  }
+
   const handleOpenAddUser = () => {
     navigate(`${userManagementPath}/new`)
   }
@@ -625,7 +633,8 @@ function App() {
     return (
       <main className="login-page">
         <section className="login-card">
-          <h1>SIKAP</h1>
+          <p className="login-eyebrow">Absensi Sholat Sekolah</p>
+          <h1>SMK Bina Putera Nusantara</h1>
           <LoadingSpinner label="Memeriksa sesi login dan menyiapkan dashboard..." />
         </section>
       </main>
@@ -707,6 +716,7 @@ function App() {
               onOpenPrayerTime={handleOpenPrayerTime}
               onOpenReport={handleOpenReport}
               onOpenUserManagement={handleOpenUserManagement}
+              onOpenMonitoring={handleOpenMonitoring}
               onLogout={handleLogout}
             />
           ) : (
@@ -756,6 +766,24 @@ function App() {
                 api={api}
                 apiBaseUrlValue={apiBaseUrl}
                 getAuthHeaders={getAuthHeaders}
+                onBackToDashboard={handleBackToDashboard}
+                onLogout={handleLogout}
+              />
+            ) : (
+              <Navigate to="/dashboard" replace />
+            )
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path={monitoringPath}
+        element={
+          authUser ? (
+            ['admin', 'kepsek'].includes(authUser.role) ? (
+              <MonitoringPage
+                authUser={authUser}
                 onBackToDashboard={handleBackToDashboard}
                 onLogout={handleLogout}
               />

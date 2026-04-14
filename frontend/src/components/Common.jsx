@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 
 import {
@@ -12,6 +12,21 @@ import {
   schoolProfileFallback,
   userManagementPath,
 } from '../config'
+
+const HARI_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+const BULAN_ID = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+]
+
+function formatTanggalPanjang(date) {
+  return `${HARI_ID[date.getDay()]}, ${date.getDate()} ${BULAN_ID[date.getMonth()]} ${date.getFullYear()}`
+}
+
+function formatJam(date) {
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${pad(date.getHours())}.${pad(date.getMinutes())}`
+}
 
 function getInitials(name) {
   if (!name) {
@@ -72,22 +87,29 @@ export function AppShell({ authUser, eyebrow, title, subtitle, actions, children
   const initials = getInitials(authUser.full_name || authUser.username)
   const navItems = buildNavItems(authUser.role)
   const [navOpen, setNavOpen] = useState(false)
+  const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
     setNavOpen(false)
   }, [location.pathname])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const tanggalSekarang = useMemo(() => formatTanggalPanjang(now), [now])
+  const jamSekarang = useMemo(() => formatJam(now), [now])
 
   return (
     <main className="dashboard-page">
       <section className="dashboard-shell">
         <header className="app-topbar">
           <div className="app-brand">
-            <div className="app-brand-mark" aria-hidden="true">
-              {schoolProfileFallback.system}
-            </div>
             <div className="app-brand-copy">
+              <span className="app-brand-eyebrow">Absensi Sholat Sekolah</span>
               <strong>{schoolProfileFallback.name}</strong>
-              <span>Absensi sholat sekolah yang ringkas dan mudah dipakai.</span>
+              <span className="app-brand-tagline">{tanggalSekarang} &middot; pukul {jamSekarang} WIB</span>
             </div>
           </div>
 

@@ -1,4 +1,4 @@
-import { roleOptions } from '../config'
+import { roleOptions, schoolProfileFallback } from '../config'
 import { LoadingSpinner } from '../components/Common'
 
 export default function AuthPage({
@@ -14,7 +14,6 @@ export default function AuthPage({
   onLogin,
   onRegister,
   onSwitchMode,
-  apiBaseUrlValue,
 }) {
   const authBusy = loading || checkingSession
   const hasError = Boolean(error)
@@ -22,8 +21,9 @@ export default function AuthPage({
   return (
     <main className="login-page" aria-busy={authBusy}>
       <section className="login-card" aria-live="polite">
-        <h1>SIKAP Auth</h1>
-        <p className="subtitle">Sistem Informasi Kepatuhan Ibadah Peserta Didik</p>
+        <p className="login-eyebrow">Absensi Sholat Sekolah</p>
+        <h1>{schoolProfileFallback.name}</h1>
+        <p className="subtitle">Silakan masuk untuk memantau kehadiran sholat di sekolah.</p>
         {checkingSession ? <p className="api-note">Memeriksa sesi login...</p> : null}
 
         <div className="mode-tabs">
@@ -116,9 +116,6 @@ export default function AuthPage({
 
         {error ? <p className="alert error">{error}</p> : null}
         {successMessage ? <p className="alert success">{successMessage}</p> : null}
-        <p className="api-note">
-          Endpoint backend: {apiBaseUrlValue}/auth/login, /auth/me, /auth/logout, /dashboard, /users
-        </p>
       </section>
     </main>
   )
