@@ -238,8 +238,6 @@ services:
       - prometheus_data:/prometheus
     depends_on:
       - backend
-    profiles:
-      - monitoring
     networks:
       - sikap-net
 
@@ -253,6 +251,10 @@ services:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "false"
     ports:
       - "3000:3000"
     volumes:
@@ -260,8 +262,6 @@ services:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - prometheus
-    profiles:
-      - monitoring
     networks:
       - sikap-net
 
