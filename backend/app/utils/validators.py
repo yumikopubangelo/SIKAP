@@ -90,6 +90,35 @@ def validate_manual_absensi_payload(payload):
     }, None
 
 
+def validate_rfid_absensi_payload(payload):
+    payload = payload or {}
+    uid_card = (payload.get("uid_card") or payload.get("id_card") or "").strip()
+    device_id = (payload.get("device_id") or "").strip()
+    timestamp_raw = (payload.get("timestamp") or "").strip()
+
+    errors = {}
+    if not uid_card:
+        errors["uid_card"] = "UID kartu wajib diisi."
+
+    if not device_id:
+        errors["device_id"] = "Device ID wajib diisi."
+
+    parsed_timestamp = None
+    if timestamp_raw:
+        parsed_timestamp = _parse_datetime(timestamp_raw)
+        if parsed_timestamp is None:
+            errors["timestamp"] = "Timestamp harus berformat ISO 8601."
+
+    if errors:
+        return None, errors
+
+    return {
+        "uid_card": uid_card,
+        "device_id": device_id,
+        "timestamp": parsed_timestamp,
+    }, None
+
+
 def validate_absensi_update_payload(payload):
     payload = payload or {}
     status = (payload.get("status") or "").strip().lower()
@@ -110,6 +139,77 @@ def validate_absensi_update_payload(payload):
     return {
         "status": status,
         "keterangan": keterangan,
+    }, None
+
+
+def validate_absensi_list_params(params):
+    params = params or {}
+    siswa_id_raw = (params.get("siswa_id") or "").strip()
+    kelas_id_raw = (params.get("kelas_id") or "").strip()
+    start_date_raw = (params.get("start_date") or "").strip()
+    end_date_raw = (params.get("end_date") or "").strip()
+    waktu_sholat = (params.get("waktu_sholat") or "").strip().lower() or None
+    status = (params.get("status") or "").strip().lower() or None
+    page_raw = (params.get("page") or "1").strip()
+    limit_raw = (params.get("limit") or "50").strip()
+    sort = (params.get("sort") or "desc").strip().lower()
+
+    errors = {}
+
+    siswa_id = None
+    if siswa_id_raw:
+        if not siswa_id_raw.isdigit():
+            errors["siswa_id"] = "Siswa ID harus berupa angka."
+        else:
+            siswa_id = int(siswa_id_raw)
+
+    kelas_id = None
+    if kelas_id_raw:
+        if not kelas_id_raw.isdigit():
+            errors["kelas_id"] = "Kelas ID harus berupa angka."
+        else:
+            kelas_id = int(kelas_id_raw)
+
+    start_date = None
+    if start_date_raw:
+        start_date = _parse_date(start_date_raw)
+        if start_date is None:
+            errors["start_date"] = "Start date harus berformat YYYY-MM-DD."
+
+    end_date = None
+    if end_date_raw:
+        end_date = _parse_date(end_date_raw)
+        if end_date is None:
+            errors["end_date"] = "End date harus berformat YYYY-MM-DD."
+
+    if start_date and end_date and start_date > end_date:
+        errors["date_range"] = "Start date tidak boleh lebih besar dari end date."
+
+    if status and status not in ABSENSI_STATUS_VALUES:
+        errors["status"] = "Status absensi tidak dikenali."
+
+    if sort not in ("asc", "desc"):
+        errors["sort"] = "Sort harus bernilai asc atau desc."
+
+    if not page_raw.isdigit() or int(page_raw) < 1:
+        errors["page"] = "Page harus berupa angka >= 1."
+
+    if not limit_raw.isdigit() or int(limit_raw) < 1:
+        errors["limit"] = "Limit harus berupa angka >= 1."
+
+    if errors:
+        return None, errors
+
+    return {
+        "siswa_id": siswa_id,
+        "kelas_id": kelas_id,
+        "start_date": start_date,
+        "end_date": end_date,
+        "waktu_sholat": waktu_sholat,
+        "status": status,
+        "page": int(page_raw),
+        "limit": min(int(limit_raw), 100),
+        "sort": sort,
     }, None
 
 

@@ -1,5 +1,6 @@
 from . import db
 
+
 class SekolahInfo(db.Model):
     __tablename__ = "sekolah_info"
 
@@ -17,3 +18,15 @@ class SekolahInfo(db.Model):
 
     def __repr__(self) -> str:
         return f"<SekolahInfo {self.nama_sekolah}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id_sekolah": self.id_sekolah,
+            "nama_sekolah": self.nama_sekolah,
+            "alamat": self.alamat,
+            "no_telp": self.no_telp,
+            "email": self.email,
+            "logo_path": self.logo_path,
+            "foto_masjid_path": self.foto_masjid_path,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }

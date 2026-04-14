@@ -5,7 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
 from ..extensions import db
-from ..models import Absensi, AuditLog, SesiSholat, Siswa, WaktuSholat
+from ..models import Absensi, AuditLog, Perangkat, SesiSholat, Siswa, WaktuSholat
 
 
 class AbsensiServiceError(Exception):
@@ -73,6 +73,28 @@ def serialize_absensi(absensi: Absensi, include_audit: bool = False) -> dict:
     return data
 
 
+def _serialize_absensi_list_item(absensi: Absensi) -> dict:
+    kelas = absensi.siswa.kelas if absensi.siswa else None
+    waktu_sholat = absensi.sesi.waktu_sholat if absensi.sesi else None
+    return {
+        "id_absensi": absensi.id_absensi,
+        "tanggal": absensi.sesi.tanggal.isoformat() if absensi.sesi and absensi.sesi.tanggal else None,
+        "waktu_sholat": waktu_sholat.nama_sholat if waktu_sholat else None,
+        "timestamp": absensi.timestamp.isoformat() if absensi.timestamp else None,
+        "status": absensi.status,
+        "device_id": absensi.device_id,
+        "keterangan": absensi.keterangan,
+        "siswa": {
+            "id_siswa": absensi.siswa.id_siswa,
+            "nisn": absensi.siswa.nisn,
+            "nama": absensi.siswa.nama,
+            "kelas": kelas.nama_kelas if kelas else None,
+        }
+        if absensi.siswa
+        else None,
+    }
+
+
 def _get_siswa_or_raise(siswa_id: int) -> Siswa:
     siswa = (
         Siswa.query.options(
@@ -98,6 +120,30 @@ def _get_waktu_sholat_or_raise(nama_sholat: str) -> WaktuSholat:
     return waktu_sholat
 
 
+def _get_siswa_by_card_or_raise(uid_card: str) -> Siswa:
+    siswa = (
+        Siswa.query.options(
+            joinedload(Siswa.kelas),
+            joinedload(Siswa.user),
+        )
+        .filter_by(id_card=uid_card)
+        .first()
+    )
+    if siswa is None:
+        raise AbsensiServiceError("Kartu tidak terdaftar.", 404)
+    return siswa
+
+
+def _get_perangkat_or_raise(device_id: str, api_key: str | None) -> Perangkat:
+    if not api_key:
+        raise AbsensiServiceError("API key perangkat wajib disertakan.", 401)
+
+    perangkat = Perangkat.query.filter_by(device_id=device_id, api_key=api_key).first()
+    if perangkat is None:
+        raise AbsensiServiceError("Perangkat tidak valid atau API key salah.", 401)
+    return perangkat
+
+
 def _get_or_create_sesi(tanggal, waktu_sholat: WaktuSholat) -> SesiSholat:
     sesi = SesiSholat.query.filter_by(
         id_waktu=waktu_sholat.id_waktu,
@@ -116,6 +162,27 @@ def _get_or_create_sesi(tanggal, waktu_sholat: WaktuSholat) -> SesiSholat:
     return sesi
 
 
+def _get_or_create_active_sesi(tanggal, waktu_sholat: WaktuSholat) -> SesiSholat:
+    sesi = SesiSholat.query.filter_by(
+        id_waktu=waktu_sholat.id_waktu,
+        tanggal=tanggal,
+    ).first()
+    if sesi is None:
+        sesi = SesiSholat(
+            id_waktu=waktu_sholat.id_waktu,
+            tanggal=tanggal,
+            status="aktif",
+        )
+        db.session.add(sesi)
+        db.session.flush()
+        return sesi
+
+    if sesi.status != "aktif":
+        raise AbsensiServiceError("Sesi sholat untuk waktu ini sudah ditutup.", 409)
+
+    return sesi
+
+
 def _build_manual_timestamp(payload: dict, waktu_sholat: WaktuSholat) -> datetime:
     if payload.get("timestamp") is not None:
         return payload["timestamp"].replace(tzinfo=None)
@@ -128,6 +195,33 @@ def _build_manual_timestamp(payload: dict, waktu_sholat: WaktuSholat) -> datetim
     else:
         event_time = waktu_sholat.waktu_selesai
     return datetime.combine(payload["tanggal"], event_time)
+
+
+def _normalize_event_timestamp(value: datetime | None) -> datetime:
+    if value is None:
+        return datetime.now()
+    return value.replace(tzinfo=None) if value.tzinfo is not None else value
+
+
+def _resolve_active_waktu_sholat_or_raise(event_timestamp: datetime) -> WaktuSholat:
+    event_time = event_timestamp.time()
+    waktu_sholat = (
+        WaktuSholat.query.filter(
+            WaktuSholat.waktu_adzan <= event_time,
+            WaktuSholat.waktu_selesai >= event_time,
+        )
+        .order_by(WaktuSholat.waktu_adzan.asc())
+        .first()
+    )
+    if waktu_sholat is None:
+        raise AbsensiServiceError("Tidak ada sesi sholat aktif untuk timestamp ini.", 409)
+    return waktu_sholat
+
+
+def _resolve_rfid_status(event_timestamp: datetime, waktu_sholat: WaktuSholat) -> str:
+    if event_timestamp.time() <= waktu_sholat.waktu_iqamah:
+        return "tepat_waktu"
+    return "terlambat"
 
 
 def _snapshot_absensi(absensi: Absensi) -> dict:
@@ -163,6 +257,64 @@ def _create_audit_log(
     db.session.add(audit_log)
     db.session.flush()
     return audit_log
+
+
+def _base_absensi_query():
+    return Absensi.query.options(
+        joinedload(Absensi.siswa).joinedload(Siswa.kelas),
+        joinedload(Absensi.sesi).joinedload(SesiSholat.waktu_sholat),
+        joinedload(Absensi.perangkat),
+        joinedload(Absensi.verifikator),
+    )
+
+
+def create_rfid_absensi(payload: dict, api_key: str | None) -> tuple[dict, int]:
+    perangkat = _get_perangkat_or_raise(payload["device_id"], api_key)
+    siswa = _get_siswa_by_card_or_raise(payload["uid_card"])
+    event_timestamp = _normalize_event_timestamp(payload.get("timestamp"))
+    waktu_sholat = _resolve_active_waktu_sholat_or_raise(event_timestamp)
+    sesi = _get_or_create_active_sesi(event_timestamp.date(), waktu_sholat)
+
+    existing = Absensi.query.filter_by(
+        id_siswa=siswa.id_siswa,
+        id_sesi=sesi.id_sesi,
+    ).first()
+    if existing is not None:
+        raise AbsensiServiceError("Siswa sudah tercatat hadir untuk sesi ini.", 409)
+
+    absensi = Absensi(
+        id_siswa=siswa.id_siswa,
+        id_sesi=sesi.id_sesi,
+        timestamp=event_timestamp,
+        status=_resolve_rfid_status(event_timestamp, waktu_sholat),
+        device_id=perangkat.device_id,
+        id_verifikator=None,
+        verified_at=None,
+        keterangan=None,
+    )
+    db.session.add(absensi)
+    db.session.flush()
+
+    perangkat.status = "online"
+    perangkat.last_ping = datetime.utcnow()
+
+    audit_log = _create_audit_log(
+        actor_id=None,
+        action="INSERT",
+        record_pk=str(absensi.id_absensi),
+        old_value=None,
+        new_value=_snapshot_absensi(absensi),
+    )
+    db.session.commit()
+
+    persisted = (
+        _base_absensi_query()
+        .filter_by(id_absensi=absensi.id_absensi)
+        .first()
+    )
+    data = serialize_absensi(persisted)
+    data["color"] = "green" if persisted.status == "tepat_waktu" else "yellow"
+    return data, audit_log.id_log
 
 
 def create_manual_absensi(payload: dict, current_user) -> tuple[dict, int]:
@@ -250,3 +402,91 @@ def update_absensi(absensi_id: int, payload: dict, current_user) -> tuple[dict, 
         .first()
     )
     return serialize_absensi(refreshed, include_audit=True), audit_log.id_log
+
+
+def _empty_scoped_absensi_query():
+    return _base_absensi_query().join(Absensi.siswa).join(Absensi.sesi).filter(Absensi.id_absensi == -1)
+
+
+def _scoped_absensi_query(current_user):
+    query = _base_absensi_query().join(Absensi.siswa).join(Absensi.sesi)
+    role = current_user.role
+
+    if role in ("admin", "kepsek", "guru_piket"):
+        return query
+
+    if role == "wali_kelas":
+        kelas_ids = [kelas.id_kelas for kelas in current_user.kelas_wali]
+        if not kelas_ids:
+            return _empty_scoped_absensi_query()
+        return query.filter(Siswa.id_kelas.in_(kelas_ids))
+
+    if role == "siswa":
+        if current_user.siswa_profile is None:
+            return _empty_scoped_absensi_query()
+        return query.filter(Absensi.id_siswa == current_user.siswa_profile.id_siswa)
+
+    if role == "orangtua":
+        student_id = None
+        orangtua_profile = getattr(current_user, "orangtua_profile", None)
+        if orangtua_profile is not None:
+            student_id = orangtua_profile.id_siswa
+        elif current_user.no_telp:
+            student_id = (
+                Siswa.query.with_entities(Siswa.id_siswa)
+                .filter_by(no_telp_ortu=current_user.no_telp)
+                .scalar()
+            )
+
+        if student_id is None:
+            return _empty_scoped_absensi_query()
+        return query.filter(Absensi.id_siswa == student_id)
+
+    return _empty_scoped_absensi_query()
+
+
+def list_absensi(params: dict, current_user) -> tuple[list[dict], dict]:
+    query = _scoped_absensi_query(current_user)
+
+    if params.get("siswa_id") is not None:
+        query = query.filter(Absensi.id_siswa == params["siswa_id"])
+
+    if params.get("kelas_id") is not None:
+        query = query.filter(Siswa.id_kelas == params["kelas_id"])
+
+    if params.get("start_date") is not None:
+        query = query.filter(SesiSholat.tanggal >= params["start_date"])
+
+    if params.get("end_date") is not None:
+        query = query.filter(SesiSholat.tanggal <= params["end_date"])
+
+    if params.get("status") is not None:
+        query = query.filter(Absensi.status == params["status"])
+
+    if params.get("waktu_sholat") is not None:
+        query = query.join(SesiSholat.waktu_sholat).filter(
+            func.lower(WaktuSholat.nama_sholat) == params["waktu_sholat"]
+        )
+
+    total_items = query.count()
+    page = params["page"]
+    limit = params["limit"]
+    total_pages = max(1, (total_items + limit - 1) // limit)
+
+    order_by = Absensi.timestamp.asc() if params["sort"] == "asc" else Absensi.timestamp.desc()
+    rows = (
+        query.order_by(order_by, Absensi.id_absensi.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
+
+    return (
+        [_serialize_absensi_list_item(item) for item in rows],
+        {
+            "page": page,
+            "limit": limit,
+            "total_items": total_items,
+            "total_pages": total_pages,
+        },
+    )
