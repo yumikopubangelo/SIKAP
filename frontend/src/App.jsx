@@ -748,6 +748,7 @@ function App() {
               api={api}
               getAuthHeaders={getAuthHeaders}
               onBackToDashboard={handleBackToDashboard}
+              onOpenMonitoring={handleOpenMonitoring}
               onOpenNotifikasi={handleOpenNotifikasi}
               onLogout={handleLogout}
             />
