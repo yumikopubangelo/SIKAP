@@ -83,7 +83,7 @@ export default function MonitoringPage({
             className="ghost-button"
             style={{ textDecoration: 'none' }}
           >
-            Buka Grafana ↗
+            Buka Grafana
           </a>
           <button type="button" onClick={onBackToDashboard}>
             Kembali

@@ -264,6 +264,7 @@ export default function UserManagementPage({
                     <th>Email</th>
                     <th>Role</th>
                     <th>Data Siswa</th>
+                    <th>UID Card</th>
                     <th>Dibuat</th>
                     <th>Aksi</th>
                   </tr>
@@ -278,6 +279,7 @@ export default function UserManagementPage({
                       <td>
                         {user.student ? `${user.student.nama} (${user.student.nisn})` : '-'}
                       </td>
+                      <td>{user.student?.id_card || '-'}</td>
                       <td>{formatCellValue(user.created_at)}</td>
                       <td>
                         <div className="table-actions">

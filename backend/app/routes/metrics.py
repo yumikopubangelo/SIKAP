@@ -1,6 +1,6 @@
 """
 Prometheus custom metrics untuk SIKAP.
-Endpoint /metrics di-handle oleh prometheus-flask-instrumentator.
+Endpoint /metrics di-handle oleh prometheus-flask-exporter.
 Modul ini mendefinisikan business metrics kustom yang di-update secara periodik.
 """
 

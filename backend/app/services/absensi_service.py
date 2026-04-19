@@ -1,4 +1,5 @@
 import json
+from hmac import compare_digest
 from datetime import datetime
 
 from sqlalchemy import func
@@ -6,6 +7,7 @@ from sqlalchemy.orm import joinedload
 
 from ..extensions import db
 from ..models import Absensi, AuditLog, Perangkat, SesiSholat, Siswa, WaktuSholat
+from ..security import RfidSecurityError, verify_rfid_signature
 
 
 class AbsensiServiceError(Exception):
@@ -138,10 +140,25 @@ def _get_perangkat_or_raise(device_id: str, api_key: str | None) -> Perangkat:
     if not api_key:
         raise AbsensiServiceError("API key perangkat wajib disertakan.", 401)
 
-    perangkat = Perangkat.query.filter_by(device_id=device_id, api_key=api_key).first()
+    perangkat = Perangkat.query.filter_by(device_id=device_id).first()
     if perangkat is None:
         raise AbsensiServiceError("Perangkat tidak valid atau API key salah.", 401)
+
+    if not compare_digest(perangkat.api_key or "", api_key):
+        raise AbsensiServiceError("Perangkat tidak valid atau API key salah.", 401)
+
     return perangkat
+
+
+def _authenticate_rfid_device(payload: dict, headers) -> tuple[Perangkat, bool, int | None]:
+    perangkat = _get_perangkat_or_raise(payload["device_id"], headers.get("X-API-Key"))
+
+    try:
+        signature_state = verify_rfid_signature(payload, headers, perangkat=perangkat)
+    except RfidSecurityError as exc:
+        raise AbsensiServiceError(exc.message, exc.status_code, errors=exc.errors) from exc
+
+    return perangkat, signature_state["verified"], signature_state["nonce"]
 
 
 def _get_or_create_sesi(tanggal, waktu_sholat: WaktuSholat) -> SesiSholat:
@@ -268,8 +285,8 @@ def _base_absensi_query():
     )
 
 
-def create_rfid_absensi(payload: dict, api_key: str | None) -> tuple[dict, int]:
-    perangkat = _get_perangkat_or_raise(payload["device_id"], api_key)
+def create_rfid_absensi(payload: dict, headers) -> tuple[dict, int]:
+    perangkat, signature_verified, signature_nonce = _authenticate_rfid_device(payload, headers)
     siswa = _get_siswa_by_card_or_raise(payload["uid_card"])
     event_timestamp = _normalize_event_timestamp(payload.get("timestamp"))
     waktu_sholat = _resolve_active_waktu_sholat_or_raise(event_timestamp)
@@ -295,6 +312,8 @@ def create_rfid_absensi(payload: dict, api_key: str | None) -> tuple[dict, int]:
     db.session.add(absensi)
     db.session.flush()
 
+    if signature_nonce is not None and hasattr(perangkat, "last_nonce"):
+        perangkat.last_nonce = signature_nonce
     perangkat.status = "online"
     perangkat.last_ping = datetime.utcnow()
 
@@ -314,6 +333,7 @@ def create_rfid_absensi(payload: dict, api_key: str | None) -> tuple[dict, int]:
     )
     data = serialize_absensi(persisted)
     data["color"] = "green" if persisted.status == "tepat_waktu" else "yellow"
+    data["signature_verified"] = signature_verified
     return data, audit_log.id_log
 
 
