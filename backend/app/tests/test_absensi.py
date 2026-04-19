@@ -1,7 +1,13 @@
-from datetime import date, time
+import base64
+import tempfile
+from datetime import date, datetime, time, timezone
+from pathlib import Path
 
 from app.extensions import db
 from app.models import AuditLog, Kelas, Perangkat, Siswa, StatusAbsensi, User, WaktuSholat
+from app.security import build_rfid_signature_message
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ed25519
 
 
 def seed_absensi_manual_data():
@@ -187,6 +193,7 @@ def test_rfid_device_can_create_absensi(client, app):
     assert body["device_id"] == seeded["device_id"]
     assert body["color"] == "green"
     assert body["verified_by_guru_piket"] is False
+    assert body["signature_verified"] is False
     assert body["audit_log_id"] >= 1
 
     with app.app_context():
@@ -236,6 +243,125 @@ def test_rfid_device_requires_valid_api_key(client, app):
 
     assert response.status_code == 401
     assert response.get_json()["message"] == "Perangkat tidak valid atau API key salah."
+
+
+def test_rfid_device_can_use_public_key_signature_when_enabled(client, app):
+    with app.app_context():
+        seeded = seed_absensi_rfid_data()
+
+    private_key = ed25519.Ed25519PrivateKey.generate()
+    public_key = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        Path(temp_dir, f"{seeded['device_id']}.pem").write_bytes(public_key)
+        app.config["RFID_REQUIRE_SIGNATURE"] = True
+        app.config["RFID_PUBLIC_KEY_DIR"] = temp_dir
+        app.config["RFID_SIGNATURE_TOLERANCE_SECONDS"] = 120
+
+        signature_timestamp = datetime.now(timezone.utc).isoformat()
+        payload = {
+            "uid_card": seeded["uid_card_1"],
+            "device_id": seeded["device_id"],
+            "timestamp": f"{date.today().isoformat()}T12:05:00",
+        }
+        message = build_rfid_signature_message(
+            payload,
+            datetime.fromisoformat(signature_timestamp.replace("Z", "+00:00")),
+        )
+        signature = base64.b64encode(private_key.sign(message)).decode("utf-8")
+
+        response = client.post(
+            "/api/v1/absensi",
+            headers={
+                "X-API-Key": seeded["api_key"],
+                "X-RFID-Signature": signature,
+                "X-RFID-Signature-Timestamp": signature_timestamp,
+            },
+            json=payload,
+        )
+
+    assert response.status_code == 201
+    assert response.get_json()["data"]["signature_verified"] is True
+
+
+def test_rfid_signature_is_required_when_enforced(client, app):
+    with app.app_context():
+        seeded = seed_absensi_rfid_data()
+
+    app.config["RFID_REQUIRE_SIGNATURE"] = True
+
+    response = client.post(
+        "/api/v1/absensi",
+        headers={"X-API-Key": seeded["api_key"]},
+        json={
+            "uid_card": seeded["uid_card_1"],
+            "device_id": seeded["device_id"],
+            "timestamp": f"{date.today().isoformat()}T12:05:00",
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.get_json()["message"] == "Tanda tangan RFID wajib disertakan."
+
+
+def test_rfid_signature_rejects_replay_timestamp(client, app):
+    with app.app_context():
+        seeded = seed_absensi_rfid_data()
+
+    private_key = ed25519.Ed25519PrivateKey.generate()
+    public_key = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        Path(temp_dir, f"{seeded['device_id']}.pem").write_bytes(public_key)
+        app.config["RFID_REQUIRE_SIGNATURE"] = True
+        app.config["RFID_PUBLIC_KEY_DIR"] = temp_dir
+        app.config["RFID_SIGNATURE_TOLERANCE_SECONDS"] = 120
+
+        signature_timestamp = datetime.now(timezone.utc).isoformat()
+        payload = {
+            "uid_card": seeded["uid_card_1"],
+            "device_id": seeded["device_id"],
+            "timestamp": f"{date.today().isoformat()}T12:05:00",
+        }
+        message = build_rfid_signature_message(
+            payload,
+            datetime.fromisoformat(signature_timestamp.replace("Z", "+00:00")),
+        )
+        signature = base64.b64encode(private_key.sign(message)).decode("utf-8")
+
+        first_response = client.post(
+            "/api/v1/absensi",
+            headers={
+                "X-API-Key": seeded["api_key"],
+                "X-RFID-Signature": signature,
+                "X-RFID-Signature-Timestamp": signature_timestamp,
+            },
+            json=payload,
+        )
+
+        second_response = client.post(
+            "/api/v1/absensi",
+            headers={
+                "X-API-Key": seeded["api_key"],
+                "X-RFID-Signature": signature,
+                "X-RFID-Signature-Timestamp": signature_timestamp,
+            },
+            json={
+                "uid_card": seeded["uid_card_2"],
+                "device_id": seeded["device_id"],
+                "timestamp": f"{date.today().isoformat()}T12:06:00",
+            },
+        )
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 401
+    assert second_response.get_json()["message"] == "Permintaan RFID terdeteksi sebagai replay atau urutan timestamp mundur."
 
 
 def test_rfid_device_rejects_tap_outside_active_session(client, app):

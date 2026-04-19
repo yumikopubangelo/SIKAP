@@ -91,6 +91,8 @@ CREATE TABLE perangkat (
     nama_device VARCHAR(100) NOT NULL,
     lokasi VARCHAR(100),
     api_key VARCHAR(100) NOT NULL UNIQUE,
+    public_key TEXT NULL,
+    last_nonce BIGINT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'offline',
     last_ping DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

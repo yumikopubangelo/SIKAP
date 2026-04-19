@@ -79,6 +79,15 @@ services:
     environment:
       FLASK_ENV: ${FLASK_ENV:-development}
       FLASK_DEBUG: ${FLASK_DEBUG:-1}
+      DEBUG_METRICS: ${DEBUG_METRICS:-1}
+      JWT_ACTIVE_KID: ${JWT_ACTIVE_KID:-v1}
+      JWT_LEGACY_KID: ${JWT_LEGACY_KID:-v1}
+      JWT_ADDITIONAL_SECRET_KEYS: ${JWT_ADDITIONAL_SECRET_KEYS:-}
+      JWT_ACCESS_TOKEN_HOURS: ${JWT_ACCESS_TOKEN_HOURS:-12}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8081,http://127.0.0.1:8081,http://localhost:5173,http://127.0.0.1:5173}
+      RFID_REQUIRE_SIGNATURE: ${RFID_REQUIRE_SIGNATURE:-0}
+      RFID_SIGNATURE_TOLERANCE_SECONDS: ${RFID_SIGNATURE_TOLERANCE_SECONDS:-120}
+      RFID_PUBLIC_KEY_DIR: ${RFID_PUBLIC_KEY_DIR:-/app/keys/rfid_public}
       DATABASE_URL: mysql+pymysql://${DB_USER:-sikap_user}:${DB_PASSWORD:-sikap_pass_2025}@db:3306/${DB_NAME:-sikap_db}
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-ganti-di-production}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-jwt-secret-key-ganti-di-production}

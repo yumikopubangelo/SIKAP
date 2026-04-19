@@ -179,3 +179,8 @@ def test_rekapitulasi_sekolah(client, app):
     assert summary["terlambat"] == 2
     assert summary["alpha"] == 2
     assert summary["persentase"] == 71.43
+    assert summary["total_hadir"] == 5
+    assert body["data"]["metadata"]["total_kelas"] == 1
+    assert body["data"]["metadata"]["total_siswa"] == 3
+    assert body["data"]["metadata"]["perangkat_online"] == 1
+    assert body["data"]["top_kelas"][0]["nama_kelas"] == "X RPL 2"
