@@ -17,6 +17,8 @@ class Perangkat(db.Model):
     nama_device = db.Column(db.String(100), nullable=False)
     lokasi = db.Column(db.String(100))
     api_key = db.Column(db.String(100), nullable=False, unique=True)
+    public_key = db.Column(db.Text, nullable=True)  # PEM encoded public key for signature verification
+    last_nonce = db.Column(db.BigInteger, nullable=True)  # stores last used timestamp to prevent replay
     status = db.Column(
         db.String(20),
         nullable=False,
@@ -42,4 +44,6 @@ class Perangkat(db.Model):
             "status": self.status,
             "last_ping": self.last_ping.isoformat() if self.last_ping else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+            "public_key": self.public_key,
+            "last_nonce": self.last_nonce,
         }

@@ -85,6 +85,44 @@ def _resolve_student_candidate(payload: dict, current_user: User | None = None) 
     return student
 
 
+def _ensure_student_card_ready_for_create(student: Siswa | None, payload: dict) -> None:
+    if student is None:
+        return
+
+    if student.id_card:
+        return
+
+    if (payload.get("id_card") or "").strip():
+        return
+
+    raise UserServiceError(
+        "UID kartu RFID wajib dikonfirmasi sebelum akun siswa baru dibuat.",
+        400,
+        errors={"id_card": "Lakukan scan kartu RFID dua kali untuk mengonfirmasi UID."},
+    )
+
+
+def _apply_student_card_update(student: Siswa, payload: dict) -> None:
+    if "id_card" not in payload:
+        return
+
+    next_card = (payload.get("id_card") or "").strip() or None
+    if next_card == student.id_card:
+        return
+
+    if next_card is None:
+        student.id_card = None
+        return
+
+    previous_owner = (
+        Siswa.query.filter(Siswa.id_card == next_card, Siswa.id_siswa != student.id_siswa).first()
+    )
+    if previous_owner is not None:
+        previous_owner.id_card = None
+
+    student.id_card = next_card
+
+
 def list_users(params: dict) -> tuple[list[dict], dict]:
     query = _user_query()
 
@@ -132,6 +170,7 @@ def get_user_detail(user_id: int) -> dict:
 def create_user(payload: dict) -> dict:
     _ensure_unique_identity_fields(username=payload["username"], email=payload.get("email"))
     student = _resolve_student_candidate(payload)
+    _ensure_student_card_ready_for_create(student, payload)
 
     user = User(
         username=payload["username"],
@@ -148,6 +187,7 @@ def create_user(payload: dict) -> dict:
 
         if student is not None:
             student.id_user = user.id_user
+            _apply_student_card_update(student, payload)
 
         db.session.commit()
     except Exception:
@@ -209,6 +249,10 @@ def update_user(user_id: int, payload: dict) -> dict:
     try:
         if student is not None:
             student.id_user = user.id_user
+
+        linked_student = user.siswa_profile or student
+        if linked_student is not None:
+            _apply_student_card_update(linked_student, payload)
 
         db.session.commit()
     except Exception:

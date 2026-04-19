@@ -50,7 +50,12 @@ class User(db.Model):
         back_populates="verifikator",
         foreign_keys="Absensi.id_verifikator",
     )
-    audit_logs = db.relationship("AuditLog", back_populates="user")
+    audit_logs = db.relationship(
+        "AuditLog",
+        back_populates="user",
+        lazy="select",
+        passive_deletes=True,
+    )
 
     def set_password(self, raw_password: str) -> None:
         self.password = bcrypt.hashpw(

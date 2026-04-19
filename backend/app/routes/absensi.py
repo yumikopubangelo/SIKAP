@@ -8,6 +8,11 @@ from ..services.absensi_service import (
     create_manual_absensi,
     update_absensi,
 )
+from ..services.rfid_capture_service import (
+    RfidCaptureServiceError,
+    has_active_capture_session,
+    record_capture_tap,
+)
 from ..utils.response import error_response, success_response
 from ..utils.validators import (
     validate_absensi_list_params,
@@ -32,10 +37,23 @@ def create_rfid():
     if errors:
         return error_response("Payload absensi RFID tidak valid.", 400, errors=errors)
 
+    if has_active_capture_session():
+        try:
+            data = record_capture_tap(payload, request.headers)
+        except RfidCaptureServiceError as exc:
+            if exc.status_code != 409:
+                return error_response(exc.message, exc.status_code, errors=exc.errors)
+        else:
+            return success_response(
+                data=data,
+                message="Tap RFID dialihkan ke mode konfirmasi UID kartu.",
+                status_code=201,
+            )
+
     try:
         data, audit_log_id = create_rfid_absensi(
             payload,
-            request.headers.get("X-API-Key"),
+            request.headers,
         )
     except AbsensiServiceError as exc:
         return error_response(exc.message, exc.status_code, errors=exc.errors)

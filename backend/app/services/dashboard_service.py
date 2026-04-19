@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import case, distinct, func
 from sqlalchemy.orm import joinedload
 
-from ..models import Absensi, Kelas, Perangkat, SesiSholat, Siswa, User
+from ..models import Absensi, Kelas, Perangkat, SesiSholat, Siswa, User, IzinPengajuan, SengketaAbsensi
 
 
 STATUS_CHART_ORDER = (
@@ -181,6 +181,17 @@ def _build_chart_payload(
 
 def _admin_payload() -> dict:
     today_query = _today_absensi()
+    now = datetime.utcnow()
+    perangkat_list = []
+    for p in Perangkat.query.all():
+        is_online = p.last_ping and p.last_ping >= (now - timedelta(minutes=3))
+        perangkat_list.append({
+            "device_id": p.device_id,
+            "nama": p.nama_device,
+            "status": "online" if is_online else "offline",
+            "last_ping": p.last_ping.isoformat() if p.last_ping else None
+        })
+    online_count = sum(1 for p in perangkat_list if p["status"] == "online")
     return {
         "cards": [
             {"key": "total_users", "label": "Total User", "value": User.query.count()},
@@ -189,9 +200,10 @@ def _admin_payload() -> dict:
             {
                 "key": "perangkat_online",
                 "label": "Perangkat Online",
-                "value": Perangkat.query.filter_by(status="online").count(),
+                "value": online_count,
             },
         ],
+        "perangkat_list": perangkat_list,
         "charts": _build_chart_payload(
             Absensi.query,
             trend_title="Trend Kehadiran Sekolah",
@@ -220,6 +232,16 @@ def _kepsek_payload() -> dict:
         .order_by(func.count(Absensi.id_absensi).desc())
         .all()
     )
+
+    zona_merah_query = (
+        Absensi.query.join(Absensi.siswa).join(Siswa.kelas)
+        .filter(Absensi.status == "alpha")
+        .with_entities(Siswa.nama.label("nama"), Kelas.nama_kelas.label("kelas"), func.count(Absensi.id_absensi).label("jumlah"))
+        .group_by(Siswa.id_siswa, Siswa.nama, Kelas.nama_kelas)
+        .having(func.count(Absensi.id_absensi) >= 2)
+        .all()
+    )
+    zona_merah = [{"nama": r.nama, "kelas": r.kelas, "jumlah": int(r.jumlah)} for r in zona_merah_query]
     return {
         "cards": [
             {"key": "total_kelas", "label": "Total Kelas", "value": Kelas.query.count()},
@@ -253,6 +275,19 @@ def _kepsek_payload() -> dict:
                 for row in class_rows
             ],
         },
+        "secondary_table": {
+            "title": "Top Offender (Sekolah)",
+            "columns": ["nama", "kelas", "jumlah"],
+            "rows": [
+                {
+                    "nama": row.nama,
+                    "kelas": row.kelas_nama,
+                    "jumlah": int(row.jumlah or 0)
+                }
+                for row in Absensi.query.join(Absensi.siswa).join(Siswa.kelas).filter(Absensi.status == "terlambat").with_entities(Siswa.nama.label("nama"), Kelas.nama_kelas.label("kelas_nama"), func.count(Absensi.id_absensi).label("jumlah")).group_by(Siswa.id_siswa, Siswa.nama, Kelas.nama_kelas).order_by(func.count(Absensi.id_absensi).desc()).limit(3).all()
+            ],
+        },
+        "zona_merah": zona_merah,
     }
 
 
@@ -304,6 +339,29 @@ def _wali_payload(current_user: User) -> dict:
         .filter(Siswa.id_kelas.in_(kelas_ids), Absensi.status == "terlambat")
         .count()
     )
+
+    pending_sengketa = SengketaAbsensi.query.join(Siswa).filter(
+        Siswa.id_kelas.in_(kelas_ids), SengketaAbsensi.status == "pending"
+    ).count()
+    pending_izin = IzinPengajuan.query.join(Siswa).filter(
+        Siswa.id_kelas.in_(kelas_ids), IzinPengajuan.status == "pending"
+    ).count()
+    pending_tasks = {
+        "sengketa": pending_sengketa,
+        "izin": pending_izin,
+        "total": pending_sengketa + pending_izin
+    }
+
+    zona_merah_query = (
+        Absensi.query.join(Absensi.siswa).join(Siswa.kelas)
+        .filter(Absensi.status == "alpha", Siswa.id_kelas.in_(kelas_ids))
+        .with_entities(Siswa.nama.label("nama"), Kelas.nama_kelas.label("kelas"), func.count(Absensi.id_absensi).label("jumlah"))
+        .group_by(Siswa.id_siswa, Siswa.nama, Kelas.nama_kelas)
+        .having(func.count(Absensi.id_absensi) >= 2)
+        .all()
+    )
+    zona_merah = [{"nama": r.nama, "kelas": r.kelas, "jumlah": int(r.jumlah)} for r in zona_merah_query]
+
     return {
         "cards": [
             {"key": "jumlah_kelas", "label": "Kelas Diampu", "value": len(kelas_diampu)},
@@ -330,18 +388,43 @@ def _wali_payload(current_user: User) -> dict:
                 for siswa in siswa_list
             ],
         },
+        "secondary_table": {
+            "title": "Top Offender (Kelas Anda)",
+            "columns": ["nama", "jumlah"],
+            "rows": [
+                {
+                    "nama": row.nama,
+                    "jumlah": int(row.jumlah or 0)
+                }
+                for row in Absensi.query.join(Absensi.siswa).filter(Siswa.id_kelas.in_(kelas_ids), Absensi.status == "terlambat").with_entities(Siswa.nama.label("nama"), func.count(Absensi.id_absensi).label("jumlah")).group_by(Siswa.id_siswa, Siswa.nama).order_by(func.count(Absensi.id_absensi).desc()).limit(3).all()
+            ],
+        },
+        "zona_merah": zona_merah,
+        "pending_tasks": pending_tasks,
     }
 
 
 def _guru_piket_payload() -> dict:
     today_query = _today_absensi()
+    now = datetime.utcnow()
+    perangkat_list = []
+    for p in Perangkat.query.all():
+        is_online = p.last_ping and p.last_ping >= (now - timedelta(minutes=3))
+        perangkat_list.append({
+            "device_id": p.device_id,
+            "nama": p.nama_device,
+            "status": "online" if is_online else "offline",
+            "last_ping": p.last_ping.isoformat() if p.last_ping else None
+        })
+    online_count = sum(1 for p in perangkat_list if p["status"] == "online")
     return {
         "cards": [
             {"key": "tap_hari_ini", "label": "Tap Hari Ini", "value": today_query.count()},
             {"key": "tepat_waktu", "label": "Tepat Waktu", "value": today_query.filter(Absensi.status == "tepat_waktu").count()},
             {"key": "terlambat", "label": "Terlambat", "value": today_query.filter(Absensi.status == "terlambat").count()},
-            {"key": "perangkat_online", "label": "Perangkat Online", "value": Perangkat.query.filter_by(status="online").count()},
+            {"key": "perangkat_online", "label": "Perangkat Online", "value": online_count},
         ],
+        "perangkat_list": perangkat_list,
         "charts": _build_chart_payload(
             Absensi.query,
             trend_title="Trend Tap Kehadiran",
@@ -382,10 +465,21 @@ def _siswa_payload(student: Siswa | None) -> dict:
                 "status": absensi.status,
             }
         )
+        
+    absensi_bulan_ini_count = monthly_query.count()
+    tepat_waktu_count = monthly_query.filter(Absensi.status == "tepat_waktu").count()
+    persentase_tepat_waktu = round((tepat_waktu_count / absensi_bulan_ini_count) * 100) if absensi_bulan_ini_count > 0 else 0
+    total_izin = monthly_query.filter(Absensi.status == "izin").count()
+
+    milestone = {
+        "persentase_tepat": persentase_tepat_waktu,
+        "total_izin": total_izin
+    }
+    
     return {
         "cards": [
-            {"key": "absensi_bulan_ini", "label": "Absensi Bulan Ini", "value": monthly_query.count()},
-            {"key": "tepat_waktu", "label": "Tepat Waktu", "value": monthly_query.filter(Absensi.status == "tepat_waktu").count()},
+            {"key": "absensi_bulan_ini", "label": "Absensi Bulan Ini", "value": absensi_bulan_ini_count},
+            {"key": "tepat_waktu", "label": "Tepat Waktu", "value": tepat_waktu_count},
             {"key": "terlambat", "label": "Terlambat", "value": monthly_query.filter(Absensi.status == "terlambat").count()},
             {"key": "status_terakhir", "label": "Status Terakhir", "value": latest.status if latest else "belum_ada"},
         ],
@@ -399,6 +493,7 @@ def _siswa_payload(student: Siswa | None) -> dict:
             "columns": ["tanggal", "timestamp", "waktu_sholat", "status"],
             "rows": rows,
         },
+        "milestone": milestone,
     }
 
 

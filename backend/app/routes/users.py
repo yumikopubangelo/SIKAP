@@ -9,6 +9,13 @@ from ..services.user_service import (
     list_users,
     update_user,
 )
+from ..services.rfid_capture_service import (
+    RfidCaptureServiceError,
+    cancel_capture_session,
+    get_capture_session,
+    reset_capture_session,
+    start_capture_session,
+)
 from ..utils.response import error_response, success_response
 from ..utils.validators import (
     validate_user_create_payload,
@@ -76,6 +83,72 @@ def create_user_route(current_user):
         message="User berhasil dibuat.",
         status_code=201,
     )
+
+
+@users_bp.post("/rfid-capture/session")
+@inject_current_user
+def start_rfid_capture_session_route(current_user):
+    forbidden_response = _ensure_admin(current_user)
+    if forbidden_response is not None:
+        return forbidden_response
+
+    try:
+        data = start_capture_session(current_user, request.get_json(silent=True))
+    except RfidCaptureServiceError as exc:
+        return error_response(exc.message, exc.status_code, errors=exc.errors)
+
+    return success_response(
+        data=data,
+        message="Sesi scan UID RFID berhasil diaktifkan.",
+        status_code=201,
+    )
+
+
+@users_bp.get("/rfid-capture/session")
+@inject_current_user
+def get_rfid_capture_session_route(current_user):
+    forbidden_response = _ensure_admin(current_user)
+    if forbidden_response is not None:
+        return forbidden_response
+
+    try:
+        data = get_capture_session(current_user)
+    except RfidCaptureServiceError as exc:
+        return error_response(exc.message, exc.status_code, errors=exc.errors)
+
+    return success_response(
+        data=data,
+        message="Status sesi scan UID RFID berhasil diambil.",
+    )
+
+
+@users_bp.post("/rfid-capture/session/reset")
+@inject_current_user
+def reset_rfid_capture_session_route(current_user):
+    forbidden_response = _ensure_admin(current_user)
+    if forbidden_response is not None:
+        return forbidden_response
+
+    try:
+        data = reset_capture_session(current_user)
+    except RfidCaptureServiceError as exc:
+        return error_response(exc.message, exc.status_code, errors=exc.errors)
+
+    return success_response(
+        data=data,
+        message="Sesi scan UID RFID berhasil direset.",
+    )
+
+
+@users_bp.delete("/rfid-capture/session")
+@inject_current_user
+def cancel_rfid_capture_session_route(current_user):
+    forbidden_response = _ensure_admin(current_user)
+    if forbidden_response is not None:
+        return forbidden_response
+
+    cancel_capture_session(current_user)
+    return success_response(message="Sesi scan UID RFID berhasil ditutup.")
 
 
 @users_bp.get("/<int:user_id>")
