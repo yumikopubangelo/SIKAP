@@ -1,0 +1,23 @@
+#ifndef SIKAP_CONFIG_H
+#define SIKAP_CONFIG_H
+
+// ==========================================
+// KONFIGURASI WIFI
+// ==========================================
+const char* WIFI_SSID     = "NAMA_WIFI_SEKOLAH";
+const char* WIFI_PASSWORD = "PASSWORD_WIFI";
+
+// ==========================================
+// KONFIGURASI API BACKEND
+// ==========================================
+// Jika menggunakan IP lokal, gunakan format misal: "http://192.168.1.100:5000/api/v1/absensi"
+const char* API_ENDPOINT  = "http://192.168.x.x:5000/api/v1/absensi";
+
+// ==========================================
+// IDENTITAS PERANGKAT (PRIVATE KEYS)
+// ==========================================
+// Harus Sama Persis dengan 'device_id' dan 'api_key' yang terdaftar di database aplikasi web!
+const char* DEVICE_ID     = "ESP-RFID-01";
+const char* API_KEY       = "demo-device-key-001"; // Private Key untuk otentikasi hardware
+
+#endif // SIKAP_CONFIG_H

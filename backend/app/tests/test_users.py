@@ -1,5 +1,5 @@
 from app.extensions import db
-from app.models import Kelas, Siswa, User
+from app.models import Kelas, Perangkat, Siswa, User
 
 
 def seed_admin():
@@ -70,6 +70,63 @@ def seed_student_with_account():
     db.session.add_all([kelas, user, siswa])
     db.session.commit()
     return user, siswa
+
+
+def seed_student_without_card():
+    kelas = Kelas(
+        nama_kelas="XII RPL 7",
+        tingkat="XII",
+        jurusan="RPL",
+        tahun_ajaran="2025/2026",
+    )
+    siswa = Siswa(
+        nisn="5000000399",
+        nama="Siswa Tanpa Kartu",
+        id_card=None,
+        kelas=kelas,
+    )
+    db.session.add_all([kelas, siswa])
+    db.session.commit()
+    return siswa
+
+
+def seed_student_user_without_card():
+    kelas = Kelas(
+        nama_kelas="XI TKJ 2",
+        tingkat="XI",
+        jurusan="TKJ",
+        tahun_ajaran="2025/2026",
+    )
+    user = User(
+        username="siswa_target",
+        full_name="Siswa Target",
+        email="siswa.target@sikap.local",
+        role="siswa",
+    )
+    user.set_password("target12345")
+    siswa = Siswa(
+        nisn="5000000499",
+        nama="Siswa Target",
+        id_card=None,
+        kelas=kelas,
+        user=user,
+    )
+    db.session.add_all([kelas, user, siswa])
+    db.session.commit()
+    return user, siswa
+
+
+def seed_rfid_device():
+    perangkat = Perangkat(
+        device_id="ESP-USERS-001",
+        nama_device="RFID User Management",
+        lokasi="Ruang Admin",
+        api_key="device-secret-users",
+        status="offline",
+    )
+    db.session.add(perangkat)
+    db.session.commit()
+    return perangkat
 
 
 def login(client, username, password):
@@ -195,3 +252,118 @@ def test_non_admin_cannot_access_user_management(client, app):
     )
 
     assert response.status_code == 403
+
+
+def test_admin_can_capture_and_assign_confirmed_rfid_uid_to_new_student_user(client, app):
+    with app.app_context():
+        admin = seed_admin()
+        siswa = seed_student_without_card()
+        perangkat = seed_rfid_device()
+        student_id = siswa.id_siswa
+        nisn = siswa.nisn
+        device_id = perangkat.device_id
+        api_key = perangkat.api_key
+
+    token = login(client, "admin_users", "admin123")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    start_response = client.post(
+        "/api/v1/users/rfid-capture/session",
+        headers=headers,
+        json={"student_id": student_id},
+    )
+    assert start_response.status_code == 201
+
+    tap_one_response = client.post(
+        "/api/v1/rfid/capture",
+        headers={"X-API-Key": api_key},
+        json={"device_id": device_id, "uid_card": "CARD-NEW-001"},
+    )
+    assert tap_one_response.status_code == 201
+    tap_one_body = tap_one_response.get_json()["data"]
+    assert tap_one_body["first_uid"] == "CARD-NEW-001"
+    assert tap_one_body["confirmed_uid"] is None
+    assert tap_one_body["status"] == "waiting_second_tap"
+
+    tap_two_response = client.post(
+        "/api/v1/rfid/capture",
+        headers={"X-API-Key": api_key},
+        json={"device_id": device_id, "uid_card": "CARD-NEW-001"},
+    )
+    assert tap_two_response.status_code == 201
+    tap_two_body = tap_two_response.get_json()["data"]
+    assert tap_two_body["confirmed_uid"] == "CARD-NEW-001"
+    assert tap_two_body["status"] == "confirmed"
+
+    create_response = client.post(
+        "/api/v1/users",
+        headers=headers,
+        json={
+            "username": "siswa.scanbaru",
+            "full_name": "Siswa Scan Baru",
+            "email": "siswa.scanbaru@sikap.local",
+            "role": "siswa",
+            "password": "password123",
+            "nisn": nisn,
+            "id_card": "CARD-NEW-001",
+        },
+    )
+
+    assert create_response.status_code == 201
+    create_body = create_response.get_json()["data"]
+    assert create_body["student"]["nisn"] == nisn
+    assert create_body["student"]["id_card"] == "CARD-NEW-001"
+
+
+def test_admin_can_transfer_and_revoke_rfid_uid_from_student_user(client, app):
+    with app.app_context():
+        seed_admin()
+        _donor_user, donor_student = seed_student_with_account()
+        target_user, target_student = seed_student_user_without_card()
+        perangkat = seed_rfid_device()
+        donor_card = donor_student.id_card
+        target_user_id = target_user.id_user
+        target_student_id = target_student.id_siswa
+        device_id = perangkat.device_id
+        api_key = perangkat.api_key
+
+    token = login(client, "admin_users", "admin123")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    start_response = client.post(
+        "/api/v1/users/rfid-capture/session",
+        headers=headers,
+        json={"student_id": target_student_id},
+    )
+    assert start_response.status_code == 201
+
+    for _ in range(2):
+        tap_response = client.post(
+            "/api/v1/rfid/capture",
+            headers={"X-API-Key": api_key},
+            json={"device_id": device_id, "uid_card": donor_card},
+        )
+        assert tap_response.status_code == 201
+
+    transfer_response = client.put(
+        f"/api/v1/users/{target_user_id}",
+        headers=headers,
+        json={"id_card": donor_card},
+    )
+    assert transfer_response.status_code == 200
+    transfer_body = transfer_response.get_json()["data"]
+    assert transfer_body["student"]["id_card"] == donor_card
+
+    with app.app_context():
+        donor_refresh = Siswa.query.filter_by(nisn="5000000299").first()
+        target_refresh = Siswa.query.filter_by(nisn="5000000499").first()
+        assert donor_refresh.id_card is None
+        assert target_refresh.id_card == donor_card
+
+    revoke_response = client.put(
+        f"/api/v1/users/{target_user_id}",
+        headers=headers,
+        json={"id_card": ""},
+    )
+    assert revoke_response.status_code == 200
+    assert revoke_response.get_json()["data"]["student"]["id_card"] is None

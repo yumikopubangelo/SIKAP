@@ -41,6 +41,7 @@ instance/
 .env
 .env.local
 .env.*.local
+hardware/esp8266_rfid/config.h
 
 # IDE
 .vscode/

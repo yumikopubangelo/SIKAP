@@ -1,3 +1,6 @@
+import base64
+import json
+
 from app.extensions import db
 from app.models import Kelas, Siswa, User
 
@@ -41,6 +44,12 @@ def create_guru_piket_and_student():
     db.session.add_all([guru_piket, kelas, siswa])
     db.session.commit()
     return guru_piket, siswa
+
+
+def decode_token_header(token: str):
+    header, _, _ = token.split(".")
+    padding = "=" * (-len(header) % 4)
+    return json.loads(base64.urlsafe_b64decode(f"{header}{padding}").decode("utf-8"))
 
 
 def test_login_and_me_flow(client, app):
@@ -90,6 +99,42 @@ def test_logout_revokes_token(client, app):
     assert me_response.status_code == 401
 
 
+def test_login_token_uses_active_kid_and_previous_token_stays_valid_after_rotation(client, app):
+    with app.app_context():
+        create_user()
+
+    app.config["JWT_SECRET_KEYS"] = {
+        "2026-04": "new-secret",
+        "2026-01": "old-secret",
+    }
+    app.config["JWT_ACTIVE_KID"] = "2026-01"
+    app.config["JWT_LEGACY_KID"] = "2026-01"
+
+    old_login = client.post(
+        "/api/v1/auth/login",
+        json={"username": "admin", "password": "admin123"},
+    )
+    old_token = old_login.get_json()["data"]["access_token"]
+    assert decode_token_header(old_token)["kid"] == "2026-01"
+
+    app.config["JWT_ACTIVE_KID"] = "2026-04"
+    app.config["JWT_LEGACY_KID"] = "2026-01"
+
+    rotated_login = client.post(
+        "/api/v1/auth/login",
+        json={"username": "admin", "password": "admin123"},
+    )
+    rotated_token = rotated_login.get_json()["data"]["access_token"]
+    assert decode_token_header(rotated_token)["kid"] == "2026-04"
+
+    me_response = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {old_token}"},
+    )
+    assert me_response.status_code == 200
+    assert me_response.get_json()["data"]["username"] == "admin"
+
+
 def test_login_rejects_invalid_password(client, app):
     with app.app_context():
         create_user()
@@ -101,6 +146,15 @@ def test_login_rejects_invalid_password(client, app):
 
     assert response.status_code == 401
     assert response.get_json()["success"] is False
+
+
+def test_security_headers_are_applied(client):
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "SAMEORIGIN"
+    assert response.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
 
 
 def test_guru_piket_can_lookup_student_candidate_by_nisn(client, app):
