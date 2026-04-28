@@ -1,6 +1,8 @@
 from datetime import date, datetime, time
 
 from ..models.absensi import ABSENSI_STATUS_VALUES
+from ..models.kelas import TINGKAT_VALUES
+from ..models.siswa import JENIS_KELAMIN_VALUES
 from ..models.user import ROLE_VALUES
 
 
@@ -42,6 +44,34 @@ def _parse_time(value: str) -> time | None:
         except ValueError:
             continue
     return None
+
+
+def _parse_int(value) -> int | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if not text.isdigit():
+        return None
+    return int(text)
+
+
+def _validate_page_limit(params, *, default_limit: str = "20") -> tuple[int | None, int | None, dict]:
+    page_raw = (params.get("page") or "1").strip()
+    limit_raw = (params.get("limit") or default_limit).strip()
+    errors = {}
+
+    if not page_raw.isdigit() or int(page_raw) < 1:
+        errors["page"] = "Page harus berupa angka >= 1."
+
+    if not limit_raw.isdigit() or int(limit_raw) < 1:
+        errors["limit"] = "Limit harus berupa angka >= 1."
+
+    if errors:
+        return None, None, errors
+
+    return int(page_raw), min(int(limit_raw), 100), {}
 
 
 def validate_manual_absensi_payload(payload):
@@ -461,3 +491,297 @@ def validate_waktu_sholat_update_payload(payload):
         "waktu_iqamah": waktu_iqamah,
         "waktu_selesai": waktu_selesai,
     }, None
+
+
+HARI_PIKET_VALUES = (
+    "senin",
+    "selasa",
+    "rabu",
+    "kamis",
+    "jumat",
+    "sabtu",
+    "minggu",
+)
+
+SP_JENIS_VALUES = ("SP1", "SP2", "SP3")
+
+
+def validate_kelas_list_params(params):
+    params = params or {}
+    search = (params.get("search") or "").strip()
+    tingkat = (params.get("tingkat") or "").strip().upper() or None
+    tahun_ajaran = (params.get("tahun_ajaran") or "").strip() or None
+    page, limit, errors = _validate_page_limit(params)
+
+    if tingkat and tingkat not in TINGKAT_VALUES:
+        errors["tingkat"] = "Tingkat kelas tidak valid."
+
+    if errors:
+        return None, errors
+
+    return {
+        "search": search or None,
+        "tingkat": tingkat,
+        "tahun_ajaran": tahun_ajaran,
+        "page": page,
+        "limit": limit,
+    }, None
+
+
+def validate_kelas_payload(payload, *, partial: bool = False):
+    payload = payload or {}
+    updates = {}
+    errors = {}
+
+    if not partial or "nama_kelas" in payload:
+        nama_kelas = (payload.get("nama_kelas") or "").strip()
+        if not nama_kelas:
+            errors["nama_kelas"] = "Nama kelas wajib diisi."
+        else:
+            updates["nama_kelas"] = nama_kelas
+
+    if not partial or "tingkat" in payload:
+        tingkat = (payload.get("tingkat") or "").strip().upper()
+        if not tingkat:
+            errors["tingkat"] = "Tingkat wajib diisi."
+        elif tingkat not in TINGKAT_VALUES:
+            errors["tingkat"] = "Tingkat kelas tidak valid."
+        else:
+            updates["tingkat"] = tingkat
+
+    if "jurusan" in payload or not partial:
+        updates["jurusan"] = (payload.get("jurusan") or "").strip() or None
+
+    if not partial or "tahun_ajaran" in payload:
+        tahun_ajaran = (payload.get("tahun_ajaran") or "").strip()
+        if not tahun_ajaran:
+            errors["tahun_ajaran"] = "Tahun ajaran wajib diisi."
+        else:
+            updates["tahun_ajaran"] = tahun_ajaran
+
+    if "id_wali" in payload or not partial:
+        raw_id_wali = payload.get("id_wali")
+        if raw_id_wali in ("", None):
+            updates["id_wali"] = None
+        else:
+            id_wali = _parse_int(raw_id_wali)
+            if id_wali is None:
+                errors["id_wali"] = "ID wali kelas harus berupa angka."
+            else:
+                updates["id_wali"] = id_wali
+
+    if partial and not updates:
+        errors["payload"] = "Minimal satu field perubahan wajib diisi."
+
+    if errors:
+        return None, errors
+
+    return updates, None
+
+
+def validate_siswa_list_params(params):
+    params = params or {}
+    search = (params.get("search") or "").strip()
+    kelas_id = _parse_int(params.get("kelas_id"))
+    parent_user_id = _parse_int(params.get("parent_user_id"))
+    page, limit, errors = _validate_page_limit(params)
+
+    if params.get("kelas_id") not in (None, "") and kelas_id is None:
+        errors["kelas_id"] = "Kelas ID harus berupa angka."
+
+    if params.get("parent_user_id") not in (None, "") and parent_user_id is None:
+        errors["parent_user_id"] = "Parent user ID harus berupa angka."
+
+    if errors:
+        return None, errors
+
+    return {
+        "search": search or None,
+        "kelas_id": kelas_id,
+        "parent_user_id": parent_user_id,
+        "page": page,
+        "limit": limit,
+    }, None
+
+
+def validate_siswa_payload(payload, *, partial: bool = False):
+    payload = payload or {}
+    updates = {}
+    errors = {}
+
+    if not partial or "nisn" in payload:
+        nisn = (payload.get("nisn") or "").strip()
+        if not nisn:
+            errors["nisn"] = "NISN wajib diisi."
+        elif not nisn.isdigit():
+            errors["nisn"] = "NISN harus berupa angka."
+        else:
+            updates["nisn"] = nisn
+
+    if not partial or "nama" in payload:
+        nama = (payload.get("nama") or "").strip()
+        if not nama:
+            errors["nama"] = "Nama siswa wajib diisi."
+        else:
+            updates["nama"] = nama
+
+    if "jenis_kelamin" in payload or not partial:
+        jenis_kelamin = (payload.get("jenis_kelamin") or "").strip().upper() or None
+        if jenis_kelamin and jenis_kelamin not in JENIS_KELAMIN_VALUES:
+            errors["jenis_kelamin"] = "Jenis kelamin harus L atau P."
+        else:
+            updates["jenis_kelamin"] = jenis_kelamin
+
+    if "alamat" in payload or not partial:
+        updates["alamat"] = (payload.get("alamat") or "").strip() or None
+
+    if "no_telp_ortu" in payload or not partial:
+        updates["no_telp_ortu"] = (payload.get("no_telp_ortu") or "").strip() or None
+
+    if "id_card" in payload or not partial:
+        updates["id_card"] = (payload.get("id_card") or "").strip() or None
+
+    if not partial or "id_kelas" in payload:
+        raw_id_kelas = payload.get("id_kelas")
+        if raw_id_kelas in ("", None):
+            errors["id_kelas"] = "Kelas wajib dipilih."
+        else:
+            id_kelas = _parse_int(raw_id_kelas)
+            if id_kelas is None:
+                errors["id_kelas"] = "ID kelas harus berupa angka."
+            else:
+                updates["id_kelas"] = id_kelas
+
+    if "id_user" in payload or not partial:
+        raw_id_user = payload.get("id_user")
+        if raw_id_user in ("", None):
+            updates["id_user"] = None
+        else:
+            id_user = _parse_int(raw_id_user)
+            if id_user is None:
+                errors["id_user"] = "ID user siswa harus berupa angka."
+            else:
+                updates["id_user"] = id_user
+
+    if "parent_user_id" in payload or not partial:
+        raw_parent_user_id = payload.get("parent_user_id")
+        if raw_parent_user_id in ("", None):
+            updates["parent_user_id"] = None
+        else:
+            parent_user_id = _parse_int(raw_parent_user_id)
+            if parent_user_id is None:
+                errors["parent_user_id"] = "ID user orang tua harus berupa angka."
+            else:
+                updates["parent_user_id"] = parent_user_id
+
+    if partial and not updates:
+        errors["payload"] = "Minimal satu field perubahan wajib diisi."
+
+    if errors:
+        return None, errors
+
+    return updates, None
+
+
+def validate_surat_peringatan_list_params(params):
+    params = params or {}
+    siswa_id = _parse_int(params.get("siswa_id"))
+    kelas_id = _parse_int(params.get("kelas_id"))
+    jenis = (params.get("jenis") or "").strip().upper() or None
+    page, limit, errors = _validate_page_limit(params)
+
+    if params.get("siswa_id") not in (None, "") and siswa_id is None:
+        errors["siswa_id"] = "Siswa ID harus berupa angka."
+
+    if params.get("kelas_id") not in (None, "") and kelas_id is None:
+        errors["kelas_id"] = "Kelas ID harus berupa angka."
+
+    if jenis and jenis not in SP_JENIS_VALUES:
+        errors["jenis"] = "Jenis surat peringatan tidak valid."
+
+    if errors:
+        return None, errors
+
+    return {
+        "siswa_id": siswa_id,
+        "kelas_id": kelas_id,
+        "jenis": jenis,
+        "page": page,
+        "limit": limit,
+    }, None
+
+
+def validate_jadwal_piket_list_params(params):
+    params = params or {}
+    hari = (params.get("hari") or "").strip().lower() or None
+    user_id = _parse_int(params.get("user_id"))
+    page, limit, errors = _validate_page_limit(params)
+
+    if hari and hari not in HARI_PIKET_VALUES:
+        errors["hari"] = "Hari piket tidak valid."
+
+    if params.get("user_id") not in (None, "") and user_id is None:
+        errors["user_id"] = "User ID harus berupa angka."
+
+    if errors:
+        return None, errors
+
+    return {
+        "hari": hari,
+        "user_id": user_id,
+        "page": page,
+        "limit": limit,
+    }, None
+
+
+def validate_jadwal_piket_payload(payload, *, partial: bool = False):
+    payload = payload or {}
+    updates = {}
+    errors = {}
+
+    if not partial or "user_id" in payload:
+        user_id = _parse_int(payload.get("user_id"))
+        if user_id is None:
+            errors["user_id"] = "User guru piket wajib dipilih."
+        else:
+            updates["user_id"] = user_id
+
+    if not partial or "hari" in payload:
+        hari = (payload.get("hari") or "").strip().lower()
+        if not hari:
+            errors["hari"] = "Hari wajib diisi."
+        elif hari not in HARI_PIKET_VALUES:
+            errors["hari"] = "Hari piket tidak valid."
+        else:
+            updates["hari"] = hari
+
+    if not partial or "jam_mulai" in payload:
+        jam_mulai_raw = (payload.get("jam_mulai") or "").strip()
+        jam_mulai = _parse_time(jam_mulai_raw) if jam_mulai_raw else None
+        if jam_mulai is None:
+            errors["jam_mulai"] = "Jam mulai wajib berformat HH:MM atau HH:MM:SS."
+        else:
+            updates["jam_mulai"] = jam_mulai
+
+    if not partial or "jam_selesai" in payload:
+        jam_selesai_raw = (payload.get("jam_selesai") or "").strip()
+        jam_selesai = _parse_time(jam_selesai_raw) if jam_selesai_raw else None
+        if jam_selesai is None:
+            errors["jam_selesai"] = "Jam selesai wajib berformat HH:MM atau HH:MM:SS."
+        else:
+            updates["jam_selesai"] = jam_selesai
+
+    if (
+        "jam_mulai" in updates
+        and "jam_selesai" in updates
+        and updates["jam_mulai"] >= updates["jam_selesai"]
+    ):
+        errors["jam_range"] = "Jam mulai harus lebih kecil dari jam selesai."
+
+    if partial and not updates:
+        errors["payload"] = "Minimal satu field perubahan wajib diisi."
+
+    if errors:
+        return None, errors
+
+    return updates, None
