@@ -376,7 +376,6 @@ def test_refresh_custom_metrics_updates_gauges_and_swallow_errors(app, monkeypat
         db.session.add_all([absensi, notifikasi, sp])
         db.session.commit()
 
-        setattr(Notifikasi, "dibaca", Notifikasi.is_read)
         metrics_module.refresh_custom_metrics(app)
 
         assert metrics_module.sikap_total_absensi._value.get() >= 1
@@ -384,6 +383,7 @@ def test_refresh_custom_metrics_updates_gauges_and_swallow_errors(app, monkeypat
         assert metrics_module.sikap_devices_online._value.get() >= 1
         assert metrics_module.sikap_total_siswa._value.get() >= 1
         assert metrics_module.sikap_total_kelas._value.get() >= 1
+        assert metrics_module.sikap_total_notifikasi_unread._value.get() >= 1
 
         original_query = metrics_module.db.session.query
 

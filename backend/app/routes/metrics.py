@@ -103,7 +103,7 @@ def refresh_custom_metrics(app):
             # Notifikasi unread
             sikap_total_notifikasi_unread.set(
                 db.session.query(Notifikasi)
-                .filter(Notifikasi.dibaca == False)  # noqa: E712
+                .filter(Notifikasi.is_read == False)  # noqa: E712
                 .count()
             )
 
