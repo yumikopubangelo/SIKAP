@@ -3,6 +3,13 @@ import { AppShell } from '../components/Common'
 import DashboardCharts from '../components/DashboardCharts'
 import { formatCellValue, formatColumnLabel } from '../utils/formatters'
 
+function formatStatValue(value) {
+  if (typeof value === 'string' && /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/.test(value)) {
+    return formatColumnLabel(value)
+  }
+  return formatCellValue(value)
+}
+
 function getInitials(name) {
   if (!name) {
     return 'SI'
@@ -50,6 +57,9 @@ export default function DashboardPage({
   onOpenReport,
   onOpenUserManagement,
   onOpenMonitoring,
+  onOpenCsvImport,
+  onOpenDutySchedule,
+  onOpenWarningLetters,
   onLogout,
 }) {
   const cards = dashboardData?.cards || []
@@ -105,6 +115,26 @@ export default function DashboardPage({
       description: 'Ambil data terbaru dari server saat tampilan perlu disegarkan.',
       onClick: onRefresh,
     },
+    ...(['admin', 'guru_piket'].includes(authUser.role)
+      ? [
+          {
+            key: 'duty-schedule',
+            label: 'Jadwal Piket',
+            description: 'Lihat giliran piket aktif dan jam tugas tiap guru piket.',
+            onClick: onOpenDutySchedule,
+          },
+        ]
+      : []),
+    ...(['admin', 'kepsek', 'wali_kelas', 'orangtua', 'siswa'].includes(authUser.role)
+      ? [
+          {
+            key: 'warning-letters',
+            label: 'Surat Peringatan',
+            description: 'Pantau SP yang sudah diterbitkan dan status kirimnya.',
+            onClick: onOpenWarningLetters,
+          },
+        ]
+      : []),
     ...(['admin', 'kepsek', 'wali_kelas'].includes(authUser.role)
       ? [
           {
@@ -138,6 +168,12 @@ export default function DashboardPage({
             label: 'Kelola Akun',
             description: 'Tambah, ubah, dan rapikan akun yang memakai sistem ini.',
             onClick: onOpenUserManagement,
+          },
+          {
+            key: 'csv-import',
+            label: 'Import CSV',
+            description: 'Unggah data siswa, kelas, dan relasi orang tua dalam sekali proses.',
+            onClick: onOpenCsvImport,
           },
         ]
       : []),
@@ -256,11 +292,11 @@ export default function DashboardPage({
                 </div>
 
                 <div className="dashboard-profile-stats">
-                  {highlightedCards.length ? (
-                    highlightedCards.map((card) => (
+                  {[...highlightedCards, ...secondaryCards].length ? (
+                    [...highlightedCards, ...secondaryCards].map((card) => (
                       <article key={card.key} className="profile-stat-card">
                         <span>{card.label}</span>
-                        <strong>{formatCellValue(card.value)}</strong>
+                        <strong>{formatStatValue(card.value)}</strong>
                       </article>
                     ))
                   ) : (
@@ -317,16 +353,6 @@ export default function DashboardPage({
                 </div>
               </section>
 
-              {secondaryCards.length ? (
-                <section className="metrics-grid">
-                  {secondaryCards.map((card) => (
-                    <article key={card.key} className="metric-card">
-                      <span>{card.label}</span>
-                      <strong>{formatCellValue(card.value)}</strong>
-                    </article>
-                  ))}
-                </section>
-              ) : null}
             </div>
           </section>
 

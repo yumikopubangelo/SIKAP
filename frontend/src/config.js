@@ -1,15 +1,20 @@
 export const apiBaseUrl = (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/$/, '')
+export const backendPublicBaseUrl = (import.meta.env.VITE_BACKEND_PUBLIC_URL || 'http://localhost:5000').replace(/\/$/, '')
 export const manualInputPath = '/guru-piket/manual-input'
 export const userManagementPath = '/admin/users'
 export const prayerTimePath = '/admin/waktu-sholat'
 export const monitoringPath = '/admin/monitoring'
+export const csvImportPath = '/admin/import-csv'
+export const dutySchedulePath = '/jadwal-piket'
 export const profilePath = '/profil'
 export const schoolDataPath = '/data-sekolah'
 export const reportPath = '/laporan'
 export const notificationPath = '/notifikasi'
+export const warningLetterPath = '/surat-peringatan'
 export const mqttWsUrl = import.meta.env.VITE_MQTT_WS_URL || 'ws://localhost:9001'
 export const mqttTopicAbsensi = import.meta.env.VITE_MQTT_TOPIC_ABSENSI || 'absensi/realtime'
 export const grafanaBaseUrl = (import.meta.env.VITE_GRAFANA_URL || 'http://localhost:3000').replace(/\/$/, '')
+export const prometheusBaseUrl = (import.meta.env.VITE_PROMETHEUS_URL || 'http://localhost:9090').replace(/\/$/, '')
 
 export const roleOptions = [
   { value: 'admin', label: 'Admin' },
@@ -21,6 +26,25 @@ export const roleOptions = [
 ]
 
 export const roleLabels = Object.fromEntries(roleOptions.map((role) => [role.value, role.label]))
+
+export const dayOptions = [
+  { value: 'senin', label: 'Senin' },
+  { value: 'selasa', label: 'Selasa' },
+  { value: 'rabu', label: 'Rabu' },
+  { value: 'kamis', label: 'Kamis' },
+  { value: 'jumat', label: 'Jumat' },
+  { value: 'sabtu', label: 'Sabtu' },
+  { value: 'minggu', label: 'Minggu' },
+]
+
+export const dayLabels = Object.fromEntries(dayOptions.map((day) => [day.value, day.label]))
+
+export const warningLetterTypeOptions = [
+  { value: '', label: 'Semua Jenis' },
+  { value: 'SP1', label: 'SP1' },
+  { value: 'SP2', label: 'SP2' },
+  { value: 'SP3', label: 'SP3' },
+]
 
 export const dashboardTitles = {
   admin: 'Dashboard Admin',
