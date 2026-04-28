@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(powershell -Command \"Get-Process -Id 4656,9144,25988 -ErrorAction SilentlyContinue | Select-Object Id,ProcessName\")",
-      "Bash(powershell -Command 'Get-NetTCPConnection -LocalPort 5000 -State Listen | ForEach-Object { $pid = $_.OwningProcess; $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue; Write-Host \"PID: $pid | Process: $\\($proc.ProcessName\\) | Port: $\\($_.LocalAddress\\):$\\($_.LocalPort\\)\" }')"
-    ]
-  }
-}
