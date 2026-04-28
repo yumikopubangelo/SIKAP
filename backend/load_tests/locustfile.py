@@ -30,14 +30,19 @@ class SikapBehavior(TaskSet):
             "password": "admin12345"
         }
         response = self.client.post(
-            "/api/auth/login",
+            "/api/v1/auth/login",
             json=payload,
-            name="/api/auth/login"
+            name="/api/v1/auth/login"
         )
         if response.status_code == 200:
             data = response.json()
             self.token = data.get("access_token")
             self.user_id = data.get("user_id")
+        else:
+            # Debug: Print error jika login gagal
+            print(f"\n❌ LOGIN FAILED: {response.status_code}")
+            print(f"Response: {response.text}")
+            raise Exception(f"Login failed: {response.status_code} - {response.text}")
     
     def setup_test_data(self):
         """Ambil ID kelas dan siswa untuk testing"""
@@ -45,9 +50,9 @@ class SikapBehavior(TaskSet):
         
         # Ambil kelas
         response = self.client.get(
-            "/api/kelas?page=1&limit=1",
+            "/api/v1/kelas?page=1&limit=1",
             headers=headers,
-            name="/api/kelas"
+            name="/api/v1/kelas"
         )
         if response.status_code == 200:
             data = response.json()
@@ -57,9 +62,9 @@ class SikapBehavior(TaskSet):
         # Ambil siswa
         if self.kelas_id:
             response = self.client.get(
-                f"/api/kelas/{self.kelas_id}/siswa?page=1&limit=1",
+                f"/api/v1/kelas/{self.kelas_id}/siswa?page=1&limit=1",
                 headers=headers,
-                name="/api/kelas/{id}/siswa"
+                name="/api/v1/kelas/{id}/siswa"
             )
             if response.status_code == 200:
                 data = response.json()
@@ -77,17 +82,17 @@ class SikapBehavior(TaskSet):
     
     @task(10)  # Weight: sering di-access
     def read_dashboard(self):
-        """GET /api/dashboard - baca dashboard utama"""
+        """GET /api/v1/dashboard - baca dashboard utama"""
         headers = self.get_auth_headers()
         self.client.get(
-            "/api/dashboard",
+            "/api/v1/dashboard",
             headers=headers,
-            name="/api/dashboard"
+            name="/api/v1/dashboard"
         )
     
     @task(8)
     def read_attendance_summary(self):
-        """GET /api/absensi/ringkasan - baca ringkasan absensi"""
+        """GET /api/v1/absensi/ringkasan - baca ringkasan absensi"""
         headers = self.get_auth_headers()
         params = {
             "page": 1,
@@ -96,86 +101,86 @@ class SikapBehavior(TaskSet):
             "sort_dir": "desc"
         }
         self.client.get(
-            "/api/absensi/ringkasan",
+            "/api/v1/absensi/ringkasan",
             headers=headers,
             params=params,
-            name="/api/absensi/ringkasan"
+            name="/api/v1/absensi/ringkasan"
         )
     
     @task(7)
     def read_notifications(self):
-        """GET /api/notifikasi - baca notifikasi user"""
+        """GET /api/v1/notifikasi - baca notifikasi user"""
         headers = self.get_auth_headers()
         self.client.get(
-            "/api/notifikasi?page=1&limit=20",
+            "/api/v1/notifikasi?page=1&limit=20",
             headers=headers,
-            name="/api/notifikasi"
+            name="/api/v1/notifikasi"
         )
     
     @task(6)
     def read_users_list(self):
-        """GET /api/users - list user (admin only)"""
+        """GET /api/v1/users - list user (admin only)"""
         headers = self.get_auth_headers()
         self.client.get(
-            "/api/users?page=1&limit=50&role=siswa",
+            "/api/v1/users?page=1&limit=50&role=siswa",
             headers=headers,
-            name="/api/users"
+            name="/api/v1/users"
         )
     
     @task(5)
     def read_kelas_list(self):
-        """GET /api/kelas - list kelas"""
+        """GET /api/v1/kelas - list kelas"""
         headers = self.get_auth_headers()
         self.client.get(
-            "/api/kelas?page=1&limit=20",
+            "/api/v1/kelas?page=1&limit=20",
             headers=headers,
-            name="/api/kelas"
+            name="/api/v1/kelas"
         )
     
     @task(5)
     def read_siswa_in_kelas(self):
-        """GET /api/kelas/{id}/siswa - list siswa per kelas"""
+        """GET /api/v1/kelas/{id}/siswa - list siswa per kelas"""
         if self.kelas_id:
             headers = self.get_auth_headers()
             self.client.get(
-                f"/api/kelas/{self.kelas_id}/siswa?page=1&limit=30",
+                f"/api/v1/kelas/{self.kelas_id}/siswa?page=1&limit=30",
                 headers=headers,
-                name="/api/kelas/{id}/siswa"
+                name="/api/v1/kelas/{id}/siswa"
             )
     
     @task(4)
     def read_waktu_sholat(self):
-        """GET /api/waktu-sholat - baca jadwal waktu sholat"""
+        """GET /api/v1/waktu-sholat - baca jadwal waktu sholat"""
         headers = self.get_auth_headers()
         self.client.get(
-            "/api/waktu-sholat",
+            "/api/v1/waktu-sholat",
             headers=headers,
-            name="/api/waktu-sholat"
+            name="/api/v1/waktu-sholat"
         )
     
     @task(3)
     def read_sesi_sholat(self):
-        """GET /api/sesi-sholat - baca sesi sholat aktif"""
+        """GET /api/v1/sesi-sholat - baca sesi sholat aktif"""
         headers = self.get_auth_headers()
         self.client.get(
-            "/api/sesi-sholat?status=aktif&page=1&limit=10",
+            "/api/v1/sesi-sholat?status=aktif&page=1&limit=10",
             headers=headers,
-            name="/api/sesi-sholat"
+            name="/api/v1/sesi-sholat"
         )
     
     @task(3)
     def read_attendance_history(self):
-        """GET /api/absensi - baca history absensi"""
+        """GET /api/v1/absensi - baca history absensi"""
         headers = self.get_auth_headers()
         self.client.get(
-            "/api/absensi?page=1&limit=50&sort_by=timestamp&sort_dir=desc",
+            "/api/v1/absensi?page=1&limit=50&sort_by=timestamp&sort_dir=desc",
             headers=headers,
-            name="/api/absensi"
+            name="/api/v1/absensi"
         )
     
     @task(2)
     def generate_report_pdf(self):
-        """POST /api/laporan/generate - generate laporan PDF"""
+        """POST /api/v1/laporan/generate - generate laporan PDF"""
         if self.kelas_id:
             headers = self.get_auth_headers()
             payload = {
@@ -186,15 +191,15 @@ class SikapBehavior(TaskSet):
                 "periode_akhir": "2026-04-28"
             }
             self.client.post(
-                "/api/laporan/generate",
+                "/api/v1/laporan/generate",
                 json=payload,
                 headers=headers,
-                name="/api/laporan/generate [PDF]"
+                name="/api/v1/laporan/generate [PDF]"
             )
     
     @task(2)
     def generate_report_excel(self):
-        """POST /api/laporan/generate - generate laporan Excel"""
+        """POST /api/v1/laporan/generate - generate laporan Excel"""
         if self.kelas_id:
             headers = self.get_auth_headers()
             payload = {
@@ -205,28 +210,28 @@ class SikapBehavior(TaskSet):
                 "periode_akhir": "2026-04-28"
             }
             self.client.post(
-                "/api/laporan/generate",
+                "/api/v1/laporan/generate",
                 json=payload,
                 headers=headers,
-                name="/api/laporan/generate [EXCEL]"
+                name="/api/v1/laporan/generate [EXCEL]"
             )
     
     @task(2)
     def read_audit_log(self):
-        """GET /api/audit-log - baca audit log"""
+        """GET /api/v1/audit-log - baca audit log"""
         headers = self.get_auth_headers()
         self.client.get(
-            "/api/audit-log?page=1&limit=50",
+            "/api/v1/audit-log?page=1&limit=50",
             headers=headers,
-            name="/api/audit-log"
+            name="/api/v1/audit-log"
         )
     
     @task(1)
     def health_check(self):
-        """GET /api/health - check kesehatan sistem"""
+        """GET /api/v1/health - check kesehatan sistem"""
         self.client.get(
-            "/api/health",
-            name="/api/health"
+            "/api/v1/health",
+            name="/api/v1/health"
         )
 
 
