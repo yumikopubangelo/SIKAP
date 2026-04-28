@@ -361,12 +361,12 @@ Base URL: `http://localhost:5000/api/v1`
 
 | Sprint | Target | Status |
 |--------|--------|--------|
-| Week 1: Inception | Definisi MVP, setup Git | ⏳ Belum Mulai |
-| Week 2–3: Iterasi 1 | Low-fi prototype | ⏳ Belum Mulai |
-| Week 4–5: Iterasi 2 | High-fi prototype + API Spec | ⏳ Belum Mulai |
-| Week 6–7: Sprint 1 | MVP (Login, RFID, Dashboard) | ⏳ Belum Mulai |
-| Week 8–9: Sprint 2 | Laporan, Notifikasi, User Mgmt | ⏳ Belum Mulai |
-| Week 10–11: Refine | Testing, UAT, Polish | ⏳ Belum Mulai |
+| Week 1: Inception | Definisi MVP, setup Git | ✅ Selesai |
+| Week 2–3: Iterasi 1 | Low-fi prototype | ✅ Selesai |
+| Week 4–5: Iterasi 2 | High-fi prototype + API Spec | ✅ Selesai |
+| Week 6–7: Sprint 1 | MVP (Login, RFID, Dashboard BE) | ✅ Selesai (Backend Selesai) |
+| Week 8–9: Sprint 2 | Laporan, Notifikasi, User Mgmt BE | ✅ Selesai (Backend Selesai) |
+| Week 10–11: Refine | Testing, UAT, Polishing Bug API | 🔄 Sedang Berjalan |
 | Week 12: Deployment | Production + Pelatihan | ⏳ Belum Mulai |
 
 ---

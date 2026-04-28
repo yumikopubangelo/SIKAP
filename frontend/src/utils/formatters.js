@@ -28,6 +28,24 @@ export function formatCellValue(value) {
     }
   }
 
+  const STATUS_LABELS = {
+    tepat_waktu: 'Tepat Waktu',
+    terlambat: 'Terlambat',
+    izin: 'Izin',
+    sakit: 'Sakit',
+    alpha: 'Alpha',
+    haid: 'Haid',
+    belum_ada: 'Belum Ada',
+    online: 'Online',
+    offline: 'Offline',
+    pending: 'Menunggu',
+    disetujui: 'Disetujui',
+    ditolak: 'Ditolak',
+  }
+  if (typeof value === 'string' && STATUS_LABELS[value]) {
+    return STATUS_LABELS[value]
+  }
+
   return String(value)
 }
 

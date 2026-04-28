@@ -116,7 +116,7 @@
 
 ### Sprint 1 Demo Checklist
 - [ ] Siswa tap kartu -> data masuk DB -> tampil di dashboard wali kelas
-- [ ] Login multi-role -> redirect ke dashboard masing-masing
+- [X] Login multi-role -> redirect ke dashboard masing-masing
 - [x] Wali kelas bisa lihat rekap kelas basic
 - [ ] ESP8266 berhasil POST ke API
 
@@ -200,11 +200,11 @@
 | **Dependency** | FE-01, BE-08 |
 
 ### Sprint 2 Demo Checklist
-- [ ] Guru piket bisa manual input absensi
+- [X] Guru piket bisa manual input absensi
 - [x] Wali kelas bisa generate laporan PDF/Excel
-- [ ] Admin bisa CRUD user
-- [ ] Notifikasi basic berfungsi
-- [ ] Integration test: frontend <-> backend semua flow
+- [X] Admin bisa CRUD user
+- [X] Notifikasi basic berfungsi
+- [] Integration test: frontend <-> backend semua flow
 
 ---
 

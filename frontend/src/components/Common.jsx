@@ -50,6 +50,7 @@ function buildNavItems(role) {
     { to: '/', label: 'Beranda', roles: ['admin', 'kepsek', 'wali_kelas', 'guru_piket', 'siswa', 'orangtua'] },
     { to: notificationPath, label: 'Pesan', roles: ['admin', 'kepsek', 'wali_kelas', 'guru_piket', 'siswa', 'orangtua'] },
     { to: schoolDataPath, label: 'Data Sekolah', roles: ['admin', 'kepsek', 'wali_kelas'] },
+    { to: monitoringPath, label: 'Monitoring', roles: ['admin', 'kepsek'] },
     { to: reportPath, label: 'Laporan', roles: ['admin', 'kepsek', 'wali_kelas'] },
     { to: monitoringPath, label: 'Monitoring', roles: ['admin', 'kepsek'] },
     { to: manualInputPath, label: 'Input Absensi', roles: ['guru_piket'] },
