@@ -33,15 +33,15 @@ String buatPingUrl() {
 
   int apiAbsensiIndex = pingUrl.indexOf("/api/v1/absensi");
   if (apiAbsensiIndex >= 0) {
-    return pingUrl.substring(0, apiAbsensiIndex) + "/ping";
+    return pingUrl.substring(0, apiAbsensiIndex) + "/api/v1/perangkat/ping";
   }
 
   int absensiIndex = pingUrl.lastIndexOf("/absensi");
   if (absensiIndex >= 0) {
-    return pingUrl.substring(0, absensiIndex) + "/ping";
+    return pingUrl.substring(0, absensiIndex) + "/api/v1/perangkat/ping";
   }
 
-  return pingUrl + "/ping";
+  return pingUrl + "/api/v1/perangkat/ping";
 }
 
 String buatHealthUrl() {
