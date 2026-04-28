@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 
 import {
+  csvImportPath,
+  dutySchedulePath,
   manualInputPath,
   monitoringPath,
   notificationPath,
@@ -12,6 +14,7 @@ import {
   schoolDataPath,
   schoolProfileFallback,
   userManagementPath,
+  warningLetterPath,
 } from '../config'
 
 const HARI_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
@@ -49,7 +52,10 @@ function buildNavItems(role) {
     { to: schoolDataPath, label: 'Data Sekolah', roles: ['admin', 'kepsek', 'wali_kelas'] },
     { to: monitoringPath, label: 'Monitoring', roles: ['admin', 'kepsek'] },
     { to: reportPath, label: 'Laporan', roles: ['admin', 'kepsek', 'wali_kelas'] },
+    { to: monitoringPath, label: 'Monitoring', roles: ['admin', 'kepsek'] },
     { to: manualInputPath, label: 'Input Absensi', roles: ['guru_piket'] },
+    { to: dutySchedulePath, label: 'Jadwal Piket', roles: ['admin', 'guru_piket'] },
+    { to: warningLetterPath, label: 'Surat Peringatan', roles: ['admin', 'kepsek', 'wali_kelas', 'orangtua', 'siswa'] },
     { to: prayerTimePath, label: 'Waktu Sholat', roles: ['admin'] },
     { to: userManagementPath, label: 'Kelola Akun', roles: ['admin'] },
     { to: profilePath, label: 'Profil Saya', roles: ['admin', 'kepsek', 'wali_kelas', 'guru_piket', 'siswa', 'orangtua'] },
@@ -127,6 +133,15 @@ export function AppShell({ authUser, eyebrow, title, subtitle, actions, children
         </header>
 
         <div className="app-nav-shell">
+          <div className="app-nav-hero-row">
+            <div className="dashboard-hero-copy">
+              {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
+              <h1>{title}</h1>
+              {subtitle ? <p className="subtitle dashboard-subtitle">{subtitle}</p> : null}
+            </div>
+            <div className="dashboard-actions">{actions}</div>
+          </div>
+
           <button
             type="button"
             className="app-nav-toggle"
@@ -165,15 +180,6 @@ export function AppShell({ authUser, eyebrow, title, subtitle, actions, children
           })}
           </nav>
         </div>
-
-        <header className="dashboard-hero">
-          <div className="dashboard-hero-copy">
-            {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
-            <h1>{title}</h1>
-            {subtitle ? <p className="subtitle dashboard-subtitle">{subtitle}</p> : null}
-          </div>
-          <div className="dashboard-actions">{actions}</div>
-        </header>
 
         {children}
       </section>

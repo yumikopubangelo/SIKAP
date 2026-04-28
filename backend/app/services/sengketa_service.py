@@ -58,7 +58,7 @@ def resolve_sengketa(sengketa_id: int, action: str, catatan: str, current_user) 
     if current_user.role != "guru_piket":
         raise SengketaServiceError("Hanya guru piket yang dapat memproses sengketa.", 403)
 
-    sengketa = SengketaAbsensi.query.get(sengketa_id)
+    sengketa = db.session.get(SengketaAbsensi, sengketa_id)
     if not sengketa:
         raise SengketaServiceError("Sengketa tidak ditemukan.", 404)
         

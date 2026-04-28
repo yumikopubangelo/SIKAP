@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 
 import { schoolProfileFallback } from '../config'
 import { AppShell } from '../components/Common'
@@ -59,6 +59,39 @@ export default function SchoolDataPage({
   useEffect(() => {
     void fetchSchoolData()
   }, [])
+
+  const handleFileChange = (event) => {
+    setSelectedFile(event.target.files?.[0] || null)
+    setCsvError('')
+    setCsvSuccess('')
+    setImportSummary(null)
+  }
+
+  const handleCsvImport = async (event) => {
+    event.preventDefault()
+    if (!selectedFile) { setCsvError('Pilih file CSV terlebih dahulu.'); return }
+    const headers = getAuthHeaders()
+    if (!headers) { setCsvError('Sesi login tidak ditemukan.'); return }
+
+    setUploading(true)
+    setCsvError('')
+    setCsvSuccess('')
+    setImportSummary(null)
+    try {
+      const formData = new FormData()
+      formData.append('file', selectedFile)
+      const { data } = await api.post('/siswa/import-csv', formData, {
+        headers: { ...headers, 'Content-Type': 'multipart/form-data' },
+      })
+      if (!data?.success || !data?.data) throw new Error('Respons tidak valid.')
+      setImportSummary(data.data)
+      setCsvSuccess(data.message || 'Import CSV selesai.')
+    } catch (err) {
+      setCsvError(err?.response?.data?.message || err?.message || 'Gagal memproses CSV.')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   const summary = schoolData?.summary || null
   const metadata = schoolData?.metadata || null
@@ -200,7 +233,6 @@ export default function SchoolDataPage({
               </p>
             </div>
           </div>
-
           <dl className="detail-list">
             <div><dt>Nama Sekolah</dt><dd>{schoolProfileFallback.name}</dd></div>
             <div><dt>Sistem</dt><dd>{schoolProfileFallback.system}</dd></div>
@@ -218,16 +250,11 @@ export default function SchoolDataPage({
             <div className="panel-header">
               <div>
                 <h2>Ringkasan Rekap</h2>
-                <p className="api-note">
-                  Statistik global kehadiran seluruh sekolah dari endpoint rekapitulasi.
-                </p>
+                <p className="api-note">Statistik kehadiran seluruh sekolah.</p>
               </div>
             </div>
-
             {loading ? (
-              <div className="empty-state compact">
-                <p>Memuat ringkasan sekolah...</p>
-              </div>
+              <div className="empty-state compact"><p>Memuat ringkasan...</p></div>
             ) : summary ? (
               <div className="mini-metrics-grid">
                 <article className="mini-metric-card">
@@ -256,9 +283,7 @@ export default function SchoolDataPage({
                 </article>
               </div>
             ) : (
-              <div className="empty-state compact">
-                <p>Ringkasan sekolah belum tersedia.</p>
-              </div>
+              <div className="empty-state compact"><p>Ringkasan belum tersedia.</p></div>
             )}
           </section>
 
@@ -352,16 +377,11 @@ export default function SchoolDataPage({
         <div className="panel-header">
           <div>
             <h2>Performa per Kelas</h2>
-            <p className="api-note">
-              Tabel rekap kehadiran lintas kelas dari endpoint `rekapitulasi/sekolah`.
-            </p>
+            <p className="api-note">Rekap kehadiran lintas kelas dari endpoint rekapitulasi.</p>
           </div>
         </div>
-
         {loading ? (
-          <div className="empty-state compact">
-            <p>Memuat data performa kelas...</p>
-          </div>
+          <div className="empty-state compact"><p>Memuat data kelas...</p></div>
         ) : kelasRows.length ? (
           <div className="table-wrapper">
             <table>
@@ -398,11 +418,81 @@ export default function SchoolDataPage({
             </table>
           </div>
         ) : (
-          <div className="empty-state">
-            <p>Belum ada data rekap sekolah untuk ditampilkan.</p>
-          </div>
+          <div className="empty-state"><p>Belum ada data rekap sekolah.</p></div>
         )}
       </section>
+
+      {isAdmin ? (
+        <section className="dashboard-panel">
+          <div className="panel-header">
+            <div>
+              <h2>Import Data CSV</h2>
+              <p className="api-note">Onboarding massal: kelas, siswa, akun orang tua, dan relasi — dalam satu file.</p>
+            </div>
+          </div>
+
+          {csvError ? <p className="alert error">{csvError}</p> : null}
+          {csvSuccess ? <p className="alert success">{csvSuccess}</p> : null}
+
+          <div className="manual-grid">
+            <section className="manual-panel">
+              <form className="manual-form" onSubmit={handleCsvImport}>
+                <div className="manual-field">
+                  <label htmlFor="csv_import_file">File CSV</label>
+                  <input id="csv_import_file" name="file" type="file" accept=".csv,text/csv" onChange={handleFileChange} />
+                  <p className="helper-text">
+                    Header wajib: <code>nama_kelas</code>, <code>tingkat</code>, <code>jurusan</code>, <code>tahun_ajaran</code>, <code>nisn</code>, <code>nama</code>.
+                  </p>
+                </div>
+                <div className="manual-actions">
+                  <button type="submit" disabled={uploading || !selectedFile}>
+                    {uploading ? 'Mengunggah...' : 'Proses Import CSV'}
+                  </button>
+                </div>
+              </form>
+
+              {importSummary ? (
+                <div style={{ marginTop: '1.25rem' }}>
+                  <div className="mini-metrics-grid">
+                    <article className="mini-metric-card"><span>Baris Diproses</span><strong>{importSummary.processed_rows}</strong></article>
+                    <article className="mini-metric-card"><span>Kelas Baru</span><strong>{importSummary.created_classes}</strong></article>
+                    <article className="mini-metric-card"><span>Siswa Baru</span><strong>{importSummary.created_students}</strong></article>
+                    <article className="mini-metric-card"><span>Orang Tua Baru</span><strong>{importSummary.created_parent_users}</strong></article>
+                  </div>
+                  {importSummary.errors?.length ? (
+                    <div className="table-wrapper" style={{ marginTop: '0.85rem' }}>
+                      <table>
+                        <thead><tr><th>Baris</th><th>Pesan Error</th></tr></thead>
+                        <tbody>
+                          {importSummary.errors.map((item, i) => (
+                            <tr key={`${item.row}-${i}`}><td>{item.row}</td><td>{item.message}</td></tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="empty-state compact" style={{ marginTop: '0.85rem' }}>
+                      <p>Tidak ada error pada proses import.</p>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </section>
+
+            <aside className="manual-side-panel">
+              <section className="dashboard-panel manual-panel">
+                <div className="panel-header">
+                  <div>
+                    <h2>Template CSV</h2>
+                    <p className="api-note">Contoh {templateLines} baris sebagai acuan format kolom.</p>
+                  </div>
+                </div>
+                <pre className="import-template">{CSV_TEMPLATE}</pre>
+              </section>
+            </aside>
+          </div>
+        </section>
+      ) : null}
     </AppShell>
   )
 }

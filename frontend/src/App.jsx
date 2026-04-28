@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
 import mqtt from 'mqtt'
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 
 import './App.css'
 import {
   apiBaseUrl,
+  csvImportPath,
+  dutySchedulePath,
   manualInputPath,
   monitoringPath,
   mqttTopicAbsensi,
@@ -15,10 +17,13 @@ import {
   reportPath,
   schoolDataPath,
   userManagementPath,
+  warningLetterPath,
 } from './config'
 import { LoadingSpinner, Toast } from './components/Common'
 import AuthPage from './pages/AuthPage'
+import CsvImportPage from './pages/CsvImportPage'
 import DashboardPage from './pages/DashboardPage'
+import DutySchedulePage from './pages/DutySchedulePage'
 import ManualInputPage from './pages/ManualInputPage'
 import MonitoringPage from './pages/MonitoringPage'
 import NotificationPage from './pages/NotificationPage'
@@ -28,24 +33,14 @@ import ReportPage from './pages/ReportPage'
 import SchoolDataPage from './pages/SchoolDataPage'
 import UserFormPage from './pages/UserFormPage'
 import UserManagementPage from './pages/UserManagementPage'
+import WarningLetterPage from './pages/WarningLetterPage'
 
 function App() {
   const navigate = useNavigate()
-  const location = useLocation()
 
   const [loginForm, setLoginForm] = useState({
     username: '',
     password: '',
-  })
-
-  const [registerForm, setRegisterForm] = useState({
-    username: '',
-    full_name: '',
-    email: '',
-    no_telp: '',
-    role: 'siswa',
-    password: '',
-    confirmPassword: '',
   })
 
   const [loading, setLoading] = useState(false)
@@ -157,28 +152,12 @@ function App() {
   }
 
   const requestNotifikasi = async (method, path = '', config = {}) => {
-    const candidates = [...new Set([`/api/notifikasi${path}`, `${apiBaseUrl}/notifikasi${path}`])]
-    let lastError = null
-
-    for (const url of candidates) {
-      try {
-        return await axios({
-          method,
-          url,
-          timeout: 10000,
-          ...config,
-        })
-      } catch (error) {
-        const status = error?.response?.status
-        if (status === 404 && url !== candidates[candidates.length - 1]) {
-          lastError = error
-          continue
-        }
-        throw error
-      }
-    }
-
-    throw lastError || new Error('Gagal mengakses endpoint notifikasi.')
+    return axios({
+      method,
+      url: `${apiBaseUrl}/notifikasi${path}`,
+      timeout: 10000,
+      ...config,
+    })
   }
 
   const fetchNotifications = async ({ silent = false } = {}) => {
@@ -283,17 +262,6 @@ function App() {
     setLoginForm((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleRegisterChange = (event) => {
-    const { name, value } = event.target
-    setRegisterForm((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleSwitchMode = (nextMode) => {
-    setError('')
-    setSuccessMessage('')
-    navigate(nextMode === 'register' ? '/register' : '/login')
-  }
-
   const handleLogin = async (event) => {
     event.preventDefault()
     setError('')
@@ -339,77 +307,6 @@ function App() {
         'Terjadi kesalahan saat menghubungi server.'
 
       setError(apiMessage)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleRegister = async (event) => {
-    event.preventDefault()
-    setError('')
-    setSuccessMessage('')
-
-    if (!registerForm.username || !registerForm.full_name || !registerForm.password) {
-      setError('Username, nama lengkap, dan password wajib diisi.')
-      return
-    }
-
-    if (registerForm.password !== registerForm.confirmPassword) {
-      setError('Konfirmasi password tidak sama.')
-      return
-    }
-
-    const headers = getAuthHeaders()
-
-    if (!headers) {
-      setError('Login dulu sebagai admin untuk membuat user baru.')
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      const payload = {
-        username: registerForm.username,
-        full_name: registerForm.full_name,
-        email: registerForm.email || null,
-        no_telp: registerForm.no_telp || null,
-        role: registerForm.role,
-        password: registerForm.password,
-      }
-
-      const { data } = await api.post('/users', payload, { headers })
-
-      if (!data?.success) {
-        setError(data?.message || 'Registrasi gagal.')
-        return
-      }
-
-      setSuccessMessage(data?.message || 'Registrasi berhasil.')
-      setRegisterForm({
-        username: '',
-        full_name: '',
-        email: '',
-        no_telp: '',
-        role: 'siswa',
-        password: '',
-        confirmPassword: '',
-      })
-    } catch (requestError) {
-      const status = requestError?.response?.status
-      const apiMessage =
-        requestError?.response?.data?.message ||
-        requestError?.response?.data?.error ||
-        requestError?.message ||
-        'Terjadi kesalahan saat menghubungi server.'
-
-      if (status === 404) {
-        setError('Endpoint registrasi (/api/v1/users) belum tersedia di backend saat ini.')
-      } else if (status === 403) {
-        setError('Akses ditolak. Registrasi user hanya untuk admin.')
-      } else {
-        setError(apiMessage)
-      }
     } finally {
       setLoading(false)
     }
@@ -538,6 +435,24 @@ function App() {
     navigate(monitoringPath)
   }
 
+  const handleOpenCsvImport = () => {
+    setError('')
+    setSuccessMessage('')
+    navigate(csvImportPath)
+  }
+
+  const handleOpenDutySchedule = () => {
+    setError('')
+    setSuccessMessage('')
+    navigate(dutySchedulePath)
+  }
+
+  const handleOpenWarningLetters = () => {
+    setError('')
+    setSuccessMessage('')
+    navigate(warningLetterPath)
+  }
+
   const handleOpenAddUser = () => {
     navigate(`${userManagementPath}/new`)
   }
@@ -641,8 +556,6 @@ function App() {
     )
   }
 
-  const authMode = location.pathname === '/register' ? 'register' : 'login'
-
   return (
     <>
       <Toast toast={toast} onClose={() => setToast(null)} />
@@ -655,47 +568,19 @@ function App() {
             <Navigate to="/dashboard" replace />
           ) : (
             <AuthPage
-              mode={authMode}
               loading={loading}
               checkingSession={checkingSession}
               loginForm={loginForm}
-              registerForm={registerForm}
               error={error}
               successMessage={successMessage}
               onLoginChange={handleLoginChange}
-              onRegisterChange={handleRegisterChange}
               onLogin={handleLogin}
-              onRegister={handleRegister}
-              onSwitchMode={handleSwitchMode}
               apiBaseUrlValue={apiBaseUrl}
             />
           )
         }
       />
-      <Route
-        path="/register"
-        element={
-          authUser ? (
-            <Navigate to="/dashboard" replace />
-          ) : (
-            <AuthPage
-              mode={authMode}
-              loading={loading}
-              checkingSession={checkingSession}
-              loginForm={loginForm}
-              registerForm={registerForm}
-              error={error}
-              successMessage={successMessage}
-              onLoginChange={handleLoginChange}
-              onRegisterChange={handleRegisterChange}
-              onLogin={handleLogin}
-              onRegister={handleRegister}
-              onSwitchMode={handleSwitchMode}
-              apiBaseUrlValue={apiBaseUrl}
-            />
-          )
-        }
-      />
+      <Route path="/register" element={<Navigate to={authUser ? '/dashboard' : '/login'} replace />} />
       <Route
         path="/dashboard"
         element={
@@ -717,6 +602,9 @@ function App() {
               onOpenReport={handleOpenReport}
               onOpenUserManagement={handleOpenUserManagement}
               onOpenMonitoring={handleOpenMonitoring}
+              onOpenCsvImport={handleOpenCsvImport}
+              onOpenDutySchedule={handleOpenDutySchedule}
+              onOpenWarningLetters={handleOpenWarningLetters}
               onLogout={handleLogout}
             />
           ) : (
@@ -832,6 +720,66 @@ function App() {
               onBackToDashboard={handleBackToDashboard}
               onLogout={handleLogout}
             />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path={csvImportPath}
+        element={
+          authUser ? (
+            authUser.role === 'admin' ? (
+              <CsvImportPage
+                authUser={authUser}
+                api={api}
+                getAuthHeaders={getAuthHeaders}
+                onBackToDashboard={handleBackToDashboard}
+                onLogout={handleLogout}
+              />
+            ) : (
+              <Navigate to="/dashboard" replace />
+            )
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path={dutySchedulePath}
+        element={
+          authUser ? (
+            ['admin', 'guru_piket'].includes(authUser.role) ? (
+              <DutySchedulePage
+                authUser={authUser}
+                api={api}
+                getAuthHeaders={getAuthHeaders}
+                onBackToDashboard={handleBackToDashboard}
+                onLogout={handleLogout}
+              />
+            ) : (
+              <Navigate to="/dashboard" replace />
+            )
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path={warningLetterPath}
+        element={
+          authUser ? (
+            ['admin', 'kepsek', 'wali_kelas', 'orangtua', 'siswa'].includes(authUser.role) ? (
+              <WarningLetterPage
+                authUser={authUser}
+                api={api}
+                getAuthHeaders={getAuthHeaders}
+                onBackToDashboard={handleBackToDashboard}
+                onLogout={handleLogout}
+              />
+            ) : (
+              <Navigate to="/dashboard" replace />
+            )
           ) : (
             <Navigate to="/login" replace />
           )

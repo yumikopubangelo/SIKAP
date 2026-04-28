@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from ..models import Absensi, Perangkat, SesiSholat, db
 
-perangkat_bp = Blueprint("perangkat_bp", __name__)
+perangkat_bp = Blueprint("perangkat_bp", __name__, url_prefix="/api/v1/perangkat")
 
 @perangkat_bp.route("/ping", methods=["POST"])
 def ping_perangkat():
@@ -15,7 +15,7 @@ def ping_perangkat():
     if not device_id or not api_key:
         return jsonify({"success": False, "message": "Missing device credentials"}), 401
 
-    perangkat = Perangkat.query.get(device_id)
+    perangkat = db.session.get(Perangkat, device_id)
     if not perangkat or perangkat.api_key != api_key:
         return jsonify({"success": False, "message": "Invalid device credentials"}), 401
 

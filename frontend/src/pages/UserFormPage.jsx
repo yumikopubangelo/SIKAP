@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { roleOptions, userManagementPath } from '../config'
 import { AppShell, LoadingSpinner } from '../components/Common'
 import { buildInitialUserForm, flattenApiErrors } from '../utils/formatters'
+
+const RFID_POLL_MS = 2000
 
 export default function UserFormPage({
   mode,
@@ -190,25 +192,14 @@ export default function UserFormPage({
   }
 
   const fetchUserDetail = async () => {
-    if (!isEdit) {
-      return
-    }
-
+    if (!isEdit) return
     const headers = getAuthHeaders()
-    if (!headers) {
-      setError('Sesi login tidak ditemukan. Silakan login ulang.')
-      setPageLoading(false)
-      return
-    }
+    if (!headers) { setError('Sesi login tidak ditemukan.'); setPageLoading(false); return }
 
     setPageLoading(true)
     try {
       const { data } = await api.get(`/users/${userId}`, { headers })
-
-      if (!data?.success || !data?.data) {
-        throw new Error('Respons detail user tidak valid.')
-      }
-
+      if (!data?.success || !data?.data) throw new Error('Respons tidak valid.')
       const user = data.data
       setForm({
         username: user.username || '',
@@ -293,20 +284,12 @@ export default function UserFormPage({
 
   const handleLookupStudent = async (explicitNisn) => {
     const nisn = (explicitNisn ?? form.nisn).trim()
-
     if (!/^\d{10}$/.test(nisn)) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        nisn: 'Masukkan NISN 10 digit untuk akun siswa.',
-      }))
+      setFieldErrors((prev) => ({ ...prev, nisn: 'Masukkan NISN 10 digit.' }))
       return null
     }
-
     const headers = getAuthHeaders()
-    if (!headers) {
-      setError('Sesi login tidak ditemukan. Silakan login ulang.')
-      return null
-    }
+    if (!headers) { setError('Sesi login tidak ditemukan.'); return null }
 
     setLookupLoading(true)
     setError('')
@@ -314,16 +297,9 @@ export default function UserFormPage({
     setFieldErrors((prev) => ({ ...prev, nisn: '' }))
 
     try {
-      const { data } = await api.get('/auth/student-candidates', {
-        headers,
-        params: { nisn },
-      })
-
+      const { data } = await api.get('/auth/student-candidates', { headers, params: { nisn } })
       const student = data?.data?.student
-      if (!data?.success || !student) {
-        throw new Error('Respons validasi siswa tidak valid.')
-      }
-
+      if (!data?.success || !student) throw new Error('Respons validasi tidak valid.')
       setStudentCandidate(student)
       setRfidSession(null)
       setRevokeCardRequested(false)
@@ -331,43 +307,105 @@ export default function UserFormPage({
         `NISN valid. Akun akan terhubung ke ${student.nama}${student.kelas ? ` dari ${student.kelas}` : ''}.`,
       )
       return student
-    } catch (requestError) {
-      const apiMessage =
-        requestError?.response?.data?.message ||
-        requestError?.message ||
-        'Gagal memvalidasi NISN siswa.'
-
+    } catch (err) {
       setStudentCandidate(null)
-      setError(apiMessage)
+      setError(err?.response?.data?.message || err?.message || 'Gagal memvalidasi NISN.')
       return null
     } finally {
       setLookupLoading(false)
     }
   }
 
+  // ── RFID capture helpers ──────────────────────────────────────────────────
+
+  const pollRfidSession = async () => {
+    const headers = getAuthHeaders()
+    if (!headers) return
+    try {
+      const { data } = await api.get('/users/rfid-capture/session', { headers })
+      if (!data?.success || !data?.data) return
+      const session = data.data
+      setRfidSession(session)
+
+      if (session.status === 'confirmed') {
+        stopRfidPoll()
+        setRfidPhase('confirmed')
+        setPendingIdCard(session.confirmed_uid)
+      } else if (session.status === 'waiting_second_tap') {
+        setRfidPhase('scanning') // keep scanning phase, message comes from session
+      }
+    } catch {
+      // silent — poll will retry
+    }
+  }
+
+  const handleStartRfidScan = async () => {
+    const headers = getAuthHeaders()
+    if (!headers) { setRfidError('Sesi login tidak ditemukan.'); return }
+
+    setRfidError('')
+    setRfidSession(null)
+    setPendingIdCard(undefined)
+
+    const candidate = studentCandidate
+    const payload = candidate?.id_siswa ? { student_id: candidate.id_siswa } : {}
+
+    try {
+      const { data } = await api.post('/users/rfid-capture/session', payload, { headers })
+      if (!data?.success) throw new Error('Gagal memulai sesi scan.')
+      setRfidSession(data.data)
+      setRfidPhase('scanning')
+      stopRfidPoll()
+      rfidPollRef.current = setInterval(pollRfidSession, RFID_POLL_MS)
+    } catch (err) {
+      setRfidError(err?.response?.data?.message || err?.message || 'Gagal memulai scan RFID.')
+      setRfidPhase('idle')
+    }
+  }
+
+  const handleResetRfidScan = async () => {
+    const headers = getAuthHeaders()
+    if (!headers) return
+    try {
+      const { data } = await api.post('/users/rfid-capture/session/reset', {}, { headers })
+      if (data?.success) {
+        setRfidSession(data.data)
+        setRfidPhase('scanning')
+        setPendingIdCard(undefined)
+        stopRfidPoll()
+        rfidPollRef.current = setInterval(pollRfidSession, RFID_POLL_MS)
+      }
+    } catch (err) {
+      setRfidError(err?.response?.data?.message || err?.message || 'Gagal mereset sesi scan.')
+    }
+  }
+
+  const handleCancelRfidScan = async () => {
+    stopRfidPoll()
+    setRfidPhase('idle')
+    setRfidSession(null)
+    setPendingIdCard(undefined)
+    const headers = getAuthHeaders()
+    if (!headers) return
+    try { await api.delete('/users/rfid-capture/session', { headers }) } catch { /* silent */ }
+  }
+
+  const handleRevokeRfid = () => {
+    setPendingIdCard(null)
+    stopRfidPoll()
+    setRfidPhase('idle')
+    setRfidSession(null)
+  }
+
+  // ── Validation & submit ───────────────────────────────────────────────────
+
   const validateUserForm = (currentForm) => {
     const nextErrors = {}
-
-    if (!currentForm.username.trim()) {
-      nextErrors.username = 'Username wajib diisi.'
-    }
-
-    if (!currentForm.full_name.trim()) {
-      nextErrors.full_name = 'Nama lengkap wajib diisi.'
-    }
-
-    if (!currentForm.role) {
-      nextErrors.role = 'Role wajib dipilih.'
-    }
-
-    if (!isEdit && !currentForm.password) {
-      nextErrors.password = 'Password wajib diisi.'
-    }
-
-    if (currentForm.password && currentForm.password.length < 8) {
-      nextErrors.password = 'Password minimal 8 karakter.'
-    }
-
+    if (!currentForm.username.trim()) nextErrors.username = 'Username wajib diisi.'
+    if (!currentForm.full_name.trim()) nextErrors.full_name = 'Nama lengkap wajib diisi.'
+    if (!currentForm.role) nextErrors.role = 'Role wajib dipilih.'
+    if (!isEdit && !currentForm.password) nextErrors.password = 'Password wajib diisi.'
+    if (currentForm.password && currentForm.password.length < 8) nextErrors.password = 'Password minimal 8 karakter.'
     if (
       (!isEdit || currentForm.password || currentForm.confirmPassword) &&
       currentForm.password !== currentForm.confirmPassword
@@ -376,7 +414,10 @@ export default function UserFormPage({
     }
 
     if (currentForm.role === 'siswa' && !linkedStudentLocked && !/^\d{10}$/.test(currentForm.nisn)) {
-      nextErrors.nisn = 'NISN 10 digit wajib diisi untuk akun siswa.'
+      nextErrors.nisn = 'NISN 10 digit wajib diisi.'
+    }
+    if (currentForm.role === 'siswa' && !isEdit && rfidPhase !== 'confirmed' && pendingIdCard === undefined) {
+      nextErrors.rfid = 'Kartu RFID wajib discan dua kali sebelum akun baru dibuat.'
     }
 
     if (currentForm.role === 'siswa' && !isEdit && !currentStudentCard && !confirmedUid) {
@@ -400,26 +441,18 @@ export default function UserFormPage({
     setSuccessMessage('')
 
     const localErrors = validateUserForm(form)
-    if (Object.keys(localErrors).length) {
-      setFieldErrors(localErrors)
-      return
-    }
+    if (Object.keys(localErrors).length) { setFieldErrors(localErrors); return }
 
     let candidate = studentCandidate
     if (form.role === 'siswa' && !linkedStudentLocked) {
       if (!candidate || candidate.nisn !== form.nisn) {
         candidate = await handleLookupStudent(form.nisn)
-        if (!candidate) {
-          return
-        }
+        if (!candidate) return
       }
     }
 
     const headers = getAuthHeaders()
-    if (!headers) {
-      setError('Sesi login tidak ditemukan. Silakan login ulang.')
-      return
-    }
+    if (!headers) { setError('Sesi login tidak ditemukan.'); return }
 
     setSubmitLoading(true)
     try {
@@ -430,15 +463,8 @@ export default function UserFormPage({
         no_telp: form.no_telp.trim() || '',
         role: form.role,
       }
-
-      if (form.password) {
-        payload.password = form.password
-      }
-
-      if (!isEdit && !form.password) {
-        payload.password = ''
-      }
-
+      if (form.password) payload.password = form.password
+      if (!isEdit && !form.password) payload.password = ''
       if (form.role === 'siswa' && !linkedStudentLocked) {
         payload.nisn = candidate?.nisn || form.nisn.trim()
       }
@@ -462,20 +488,14 @@ export default function UserFormPage({
 
       await stopRfidCapture({ silent: true })
 
+      stopRfidPoll()
       navigate(userManagementPath, {
         replace: true,
-        state: {
-          userManagementMessage:
-            data.message || (isEdit ? 'User berhasil diupdate.' : 'User berhasil dibuat.'),
-        },
+        state: { userManagementMessage: data.message || (isEdit ? 'User berhasil diupdate.' : 'User berhasil dibuat.') },
       })
-    } catch (requestError) {
-      const apiErrors = requestError?.response?.data?.errors || {}
-      const apiMessage =
-        requestError?.response?.data?.message ||
-        requestError?.message ||
-        'Gagal menyimpan data user.'
-
+    } catch (err) {
+      const apiErrors = err?.response?.data?.errors || {}
+      const apiMessage = err?.response?.data?.message || err?.message || 'Gagal menyimpan data user.'
       setFieldErrors((prev) => ({
         ...prev,
         username: apiErrors?.username || prev.username || '',
@@ -493,6 +513,21 @@ export default function UserFormPage({
     }
   }
 
+  // ── RFID widget render helper ─────────────────────────────────────────────
+
+  const currentCard = studentCandidate?.id_card || null
+  const showRfidWidget = form.role === 'siswa'
+
+  const rfidStatusText = () => {
+    if (rfidPhase === 'confirmed') return `Kartu terkonfirmasi: ${pendingIdCard}`
+    if (!rfidSession) return 'Tekan tombol untuk mulai scan.'
+    if (rfidSession.status === 'waiting_first_tap') return 'Tempelkan kartu RFID ke perangkat...'
+    if (rfidSession.status === 'waiting_second_tap') return 'Tap pertama diterima. Tempelkan kartu yang sama sekali lagi.'
+    return rfidSession.message || ''
+  }
+
+  const rfidTapCount = rfidSession?.tap_count || 0
+
   return (
     <AppShell
       authUser={authUser}
@@ -501,12 +536,8 @@ export default function UserFormPage({
       subtitle="Lengkapi data akun dan sambungkan ke data siswa bila diperlukan."
       actions={
         <>
-          <button type="button" className="ghost-button" onClick={onBackToUserManagement}>
-            Daftar Akun
-          </button>
-          <button type="button" onClick={onLogout}>
-            Keluar
-          </button>
+          <button type="button" className="ghost-button" onClick={onBackToUserManagement}>Daftar Akun</button>
+          <button type="button" onClick={onLogout}>Keluar</button>
         </>
       }
     >
@@ -514,18 +545,14 @@ export default function UserFormPage({
       {successMessage ? <p className="alert success">{successMessage}</p> : null}
 
       {pageLoading ? (
-        <section className="dashboard-panel">
-          <LoadingSpinner label="Memuat detail user..." />
-        </section>
+        <section className="dashboard-panel"><LoadingSpinner label="Memuat detail user..." /></section>
       ) : (
         <section className="manual-grid">
           <section className="dashboard-panel manual-panel">
             <div className="panel-header">
               <div>
                 <h2>{isEdit ? 'Form Edit User' : 'Form Tambah User'}</h2>
-                <p className="api-note">
-                  Data ini akan dipakai untuk login dan pengelolaan role di dalam sistem.
-                </p>
+                <p className="api-note">Data ini akan dipakai untuk login dan pengelolaan role.</p>
               </div>
             </div>
 
@@ -533,105 +560,49 @@ export default function UserFormPage({
               <div className="manual-form-grid">
                 <div className="manual-field">
                   <label htmlFor="user_username">Username</label>
-                  <input
-                    id="user_username"
-                    name="username"
-                    type="text"
-                    value={form.username}
-                    onChange={handleFieldChange}
-                    placeholder="contoh: ahmad.fadil"
-                  />
+                  <input id="user_username" name="username" type="text" value={form.username} onChange={handleFieldChange} placeholder="contoh: ahmad.fadil" />
                   {fieldErrors.username ? <p className="field-error">{fieldErrors.username}</p> : null}
                 </div>
 
                 <div className="manual-field">
                   <label htmlFor="user_full_name">Nama Lengkap</label>
-                  <input
-                    id="user_full_name"
-                    name="full_name"
-                    type="text"
-                    value={form.full_name}
-                    onChange={handleFieldChange}
-                    placeholder="Nama lengkap pengguna"
-                  />
+                  <input id="user_full_name" name="full_name" type="text" value={form.full_name} onChange={handleFieldChange} placeholder="Nama lengkap pengguna" />
                   {fieldErrors.full_name ? <p className="field-error">{fieldErrors.full_name}</p> : null}
                 </div>
 
                 <div className="manual-field">
                   <label htmlFor="user_email">Email</label>
-                  <input
-                    id="user_email"
-                    name="email"
-                    type="email"
-                    value={form.email}
-                    onChange={handleFieldChange}
-                    placeholder="contoh: user@sikap.local"
-                  />
+                  <input id="user_email" name="email" type="email" value={form.email} onChange={handleFieldChange} placeholder="contoh: user@sikap.local" />
                   {fieldErrors.email ? <p className="field-error">{fieldErrors.email}</p> : null}
                 </div>
 
                 <div className="manual-field">
                   <label htmlFor="user_no_telp">No. Telepon</label>
-                  <input
-                    id="user_no_telp"
-                    name="no_telp"
-                    type="text"
-                    value={form.no_telp}
-                    onChange={handleFieldChange}
-                    placeholder="08xxxxxxxxxx"
-                  />
+                  <input id="user_no_telp" name="no_telp" type="text" value={form.no_telp} onChange={handleFieldChange} placeholder="08xxxxxxxxxx" />
                   {fieldErrors.no_telp ? <p className="field-error">{fieldErrors.no_telp}</p> : null}
                 </div>
 
                 <div className="manual-field">
                   <label htmlFor="user_role">Role</label>
-                  <select
-                    id="user_role"
-                    name="role"
-                    value={form.role}
-                    onChange={handleFieldChange}
-                    disabled={linkedStudentLocked}
-                  >
+                  <select id="user_role" name="role" value={form.role} onChange={handleFieldChange} disabled={linkedStudentLocked}>
                     {roleOptions.map((role) => (
-                      <option key={role.value} value={role.value}>
-                        {role.label}
-                      </option>
+                      <option key={role.value} value={role.value}>{role.label}</option>
                     ))}
                   </select>
-                  {linkedStudentLocked ? (
-                    <p className="helper-text">
-                      Role dikunci karena akun ini sudah terhubung ke data siswa.
-                    </p>
-                  ) : null}
+                  {linkedStudentLocked ? <p className="helper-text">Role dikunci karena akun ini sudah terhubung ke data siswa.</p> : null}
                   {fieldErrors.role ? <p className="field-error">{fieldErrors.role}</p> : null}
                 </div>
 
                 <div className="manual-field">
                   <label htmlFor="user_password">{isEdit ? 'Password Baru' : 'Password'}</label>
-                  <input
-                    id="user_password"
-                    name="password"
-                    type="password"
-                    value={form.password}
-                    onChange={handleFieldChange}
-                    placeholder={isEdit ? 'Kosongkan jika tidak diubah' : 'Minimal 8 karakter'}
-                  />
+                  <input id="user_password" name="password" type="password" value={form.password} onChange={handleFieldChange} placeholder={isEdit ? 'Kosongkan jika tidak diubah' : 'Minimal 8 karakter'} />
                   {fieldErrors.password ? <p className="field-error">{fieldErrors.password}</p> : null}
                 </div>
 
                 <div className="manual-field">
                   <label htmlFor="user_confirm_password">Konfirmasi Password</label>
-                  <input
-                    id="user_confirm_password"
-                    name="confirmPassword"
-                    type="password"
-                    value={form.confirmPassword}
-                    onChange={handleFieldChange}
-                    placeholder="Ulangi password"
-                  />
-                  {fieldErrors.confirmPassword ? (
-                    <p className="field-error">{fieldErrors.confirmPassword}</p>
-                  ) : null}
+                  <input id="user_confirm_password" name="confirmPassword" type="password" value={form.confirmPassword} onChange={handleFieldChange} placeholder="Ulangi password" />
+                  {fieldErrors.confirmPassword ? <p className="field-error">{fieldErrors.confirmPassword}</p> : null}
                 </div>
 
                 {form.role === 'siswa' ? (
@@ -790,6 +761,71 @@ export default function UserFormPage({
                 ) : null}
               </div>
 
+              {/* RFID capture widget */}
+              {showRfidWidget ? (
+                <div className="rfid-widget">
+                  <div className="rfid-widget-header">
+                    <h3>Kartu RFID</h3>
+                    {pendingIdCard === null ? (
+                      <span className="rfid-revoke-badge">Kartu akan dicabut saat disimpan</span>
+                    ) : pendingIdCard ? (
+                      <span className="rfid-confirmed-badge">Kartu baru siap disimpan</span>
+                    ) : currentCard ? (
+                      <span className="rfid-current-badge">Kartu terdaftar: {currentCard}</span>
+                    ) : (
+                      <span className="rfid-empty-badge">Belum ada kartu</span>
+                    )}
+                  </div>
+
+                  {rfidError ? <p className="field-error">{rfidError}</p> : null}
+                  {fieldErrors.rfid ? <p className="field-error">{fieldErrors.rfid}</p> : null}
+
+                  {rfidPhase === 'idle' ? (
+                    <div className="rfid-widget-actions">
+                      <button type="button" className="ghost-button" onClick={handleStartRfidScan} disabled={submitLoading}>
+                        {currentCard || pendingIdCard ? 'Ganti Kartu RFID' : 'Mulai Scan Kartu RFID'}
+                      </button>
+                      {(currentCard && pendingIdCard === undefined) ? (
+                        <button type="button" className="ghost-button danger-ghost" onClick={handleRevokeRfid} disabled={submitLoading}>
+                          Cabut Kartu RFID
+                        </button>
+                      ) : null}
+                      {pendingIdCard === null ? (
+                        <button type="button" className="ghost-button" onClick={() => setPendingIdCard(undefined)} disabled={submitLoading}>
+                          Batalkan Pencabutan
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : rfidPhase === 'confirmed' ? (
+                    <div className="rfid-scan-status rfid-scan-status--confirmed">
+                      <span className="rfid-tap-dots">
+                        <span className="rfid-tap-dot rfid-tap-dot--filled" />
+                        <span className="rfid-tap-dot rfid-tap-dot--filled" />
+                      </span>
+                      <p>{rfidStatusText()}</p>
+                      {rfidSession?.card_owner ? (
+                        <p className="rfid-warn">
+                          Kartu ini sebelumnya terdaftar atas nama <strong>{rfidSession.card_owner.nama}</strong>. Menyimpan akan memindahkan kartu ke akun ini.
+                        </p>
+                      ) : null}
+                      <button type="button" className="ghost-button" onClick={handleResetRfidScan}>Ulangi Scan</button>
+                    </div>
+                  ) : (
+                    <div className="rfid-scan-status rfid-scan-status--scanning">
+                      <span className="rfid-tap-dots">
+                        <span className={`rfid-tap-dot${rfidTapCount >= 1 ? ' rfid-tap-dot--filled' : ''}`} />
+                        <span className={`rfid-tap-dot${rfidTapCount >= 2 ? ' rfid-tap-dot--filled' : ''}`} />
+                      </span>
+                      <p>{rfidStatusText()}</p>
+                      <div className="rfid-widget-actions">
+                        <button type="button" className="ghost-button" onClick={handleResetRfidScan}>Ulangi</button>
+                        <button type="button" className="ghost-button danger-ghost" onClick={handleCancelRfidScan}>Batalkan</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
               <div className="manual-actions">
                 <button type="submit" disabled={submitLoading || lookupLoading || rfidLoading}>
                   {submitLoading ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Buat User'}
@@ -811,9 +847,7 @@ export default function UserFormPage({
               <div className="panel-header">
                 <div>
                   <h2>Preview Relasi Siswa</h2>
-                  <p className="api-note">
-                    Panel ini membantu memastikan akun siswa tersambung ke entitas siswa yang benar.
-                  </p>
+                  <p className="api-note">Pastikan akun tersambung ke entitas siswa yang benar.</p>
                 </div>
               </div>
 
@@ -828,8 +862,8 @@ export default function UserFormPage({
                 <div className="empty-state compact">
                   <p>
                     {form.role === 'siswa'
-                      ? 'Belum ada siswa tervalidasi. Isi NISN lalu lakukan validasi.'
-                      : 'Preview siswa hanya muncul bila role akun diatur sebagai siswa.'}
+                      ? 'Belum ada siswa tervalidasi. Isi NISN lalu validasi.'
+                      : 'Preview siswa hanya muncul bila role diatur sebagai siswa.'}
                   </p>
                 </div>
               )}

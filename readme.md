@@ -19,7 +19,7 @@
 |------|--------|
 | **Mata Kuliah** | Rancang Bangun Perangkat Lunak (RKBL) |
 | **Dosen** | Erna Haerani, S.T., M.Kom. |
-| **Semester** | Genap 2024/2025 |
+| **Semester** | Genap 2025/2026 |
 | **Prodi** | Sistem Informasi — Universitas Siliwangi |
 | **Kelompok** | 1 |
 
@@ -27,10 +27,10 @@
 
 | No | Nama | NIM | Role |
 |----|------|-----|------|
-| 1 | [Nama Anggota 1] | [NIM] | UI/UX Designer (Lead) |
-| 2 | [Nama Anggota 2] | [NIM] | UI/UX Designer |
-| 3 | [Nama Anggota 3] | [NIM] | Backend Developer (Lead) |
-| 4 | [Nama Anggota 4] | [NIM] | Backend Developer + Hardware |
+| 1 | Azzahra Putri Aulia | 247007111014 | UI/UX Designer (Lead) |
+| 2 | Maitsa Wahsfa Syahira | 247007111008 | UI/UX Designer |
+| 3 | Hegira Musyafa Kartiwan | 247007111028 | Backend Developer (Lead) |
+| 4 | Ramadhan Bagus Hendrawan | 247007111030 | Backend Developer + Hardware |
 
 ---
 
@@ -385,4 +385,4 @@ SMK Bina Putra Nusantara · Universitas Siliwangi — Program Studi Sistem Infor
 
 ---
 
-_Dibuat oleh Kelompok 1 — SI UNSIL 2025_
+_Dibuat oleh Kelompok 1 — SI UNSIL 2026_

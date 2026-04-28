@@ -466,7 +466,19 @@ button:disabled {
 .app-nav-shell {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
+  padding: clamp(1.35rem, 3vw, 2.2rem);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  box-shadow: var(--shadow-sm);
+}
+
+.app-nav-hero-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .app-nav-toggle {
@@ -502,11 +514,8 @@ button:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 0.7rem;
-  padding: 0.75rem 0.85rem;
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  box-shadow: var(--shadow-sm);
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(15, 143, 159, 0.12);
 }
 
 .app-nav-link {
@@ -531,24 +540,12 @@ button:disabled {
   border-color: rgba(15, 143, 159, 0.18);
 }
 
-.dashboard-hero {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: clamp(1.35rem, 3vw, 2.2rem);
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.82);
-  box-shadow: var(--shadow-sm);
-}
-
 .dashboard-hero-copy {
   max-width: 60ch;
 }
 
-.dashboard-hero .eyebrow,
-.dashboard-hero .subtitle {
+.app-nav-shell .eyebrow,
+.app-nav-shell .subtitle {
   color: #5d7280;
 }
 
@@ -839,8 +836,9 @@ button:disabled {
 }
 
 .profile-stat-card strong {
-  font-size: 1.25rem;
+  font-size: 1rem;
   color: var(--brand-deep);
+  word-break: break-word;
 }
 
 .profile-stat-card.is-text strong {
@@ -1157,6 +1155,46 @@ tbody tr:last-child td {
   border-bottom: 0;
 }
 
+tbody tr.clickable-row {
+  cursor: pointer;
+}
+
+tbody tr.active-row td {
+  background: rgba(15, 143, 159, 0.09);
+}
+
+.sp-filter-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.sp-filter-field {
+  min-width: 180px;
+  max-width: 220px;
+}
+
+.sp-filter-count {
+  margin: 0;
+  padding-bottom: 0.4rem;
+}
+
+.sp-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: rgba(15, 143, 159, 0.1);
+  color: var(--brand-deep);
+}
+
+.sp-badge--sp1 { background: rgba(255, 180, 0, 0.15); color: #7a5200; }
+.sp-badge--sp2 { background: rgba(239, 103, 103, 0.15); color: #8b1f1f; }
+.sp-badge--sp3 { background: rgba(200, 0, 0, 0.12); color: #6b0000; }
+
 .empty-state {
   padding: 2rem 1rem;
   text-align: center;
@@ -1263,6 +1301,114 @@ tbody tr:last-child td {
   margin-top: 0;
 }
 
+/* RFID widget */
+.rfid-widget {
+  border: 1px solid rgba(15, 143, 159, 0.2);
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem;
+  background: rgba(236, 248, 248, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.rfid-widget-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.rfid-widget-header h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--brand-deep);
+  margin: 0;
+}
+
+.rfid-widget-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.rfid-widget-actions button {
+  width: auto;
+  margin-top: 0;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.88rem;
+}
+
+.rfid-current-badge,
+.rfid-empty-badge,
+.rfid-confirmed-badge,
+.rfid-revoke-badge {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.rfid-current-badge  { background: rgba(15, 143, 159, 0.12); color: var(--brand-deep); }
+.rfid-confirmed-badge { background: rgba(39, 174, 96, 0.14); color: #1a6636; }
+.rfid-empty-badge    { background: rgba(44, 77, 95, 0.08); color: var(--muted); }
+.rfid-revoke-badge   { background: rgba(192, 57, 43, 0.12); color: #8b1f1f; }
+
+.rfid-scan-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.rfid-scan-status p {
+  font-size: 0.9rem;
+  color: var(--ink);
+  margin: 0;
+}
+
+.rfid-warn {
+  font-size: 0.84rem !important;
+  color: #7a3e00 !important;
+  background: rgba(255, 180, 0, 0.1);
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+}
+
+.rfid-tap-dots {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.rfid-tap-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(15, 143, 159, 0.4);
+  background: transparent;
+  transition: background 300ms, border-color 300ms;
+}
+
+.rfid-tap-dot--filled {
+  background: var(--brand);
+  border-color: var(--brand-deep);
+}
+
+.rfid-scan-status--confirmed .rfid-tap-dot--filled {
+  background: #27ae60;
+  border-color: #1a6636;
+}
+
+.danger-ghost {
+  color: #c0392b !important;
+  border-color: rgba(192, 57, 43, 0.35) !important;
+}
+
+.danger-ghost:hover {
+  background: rgba(192, 57, 43, 0.07) !important;
+}
+
 .toolbar-form {
   display: flex;
   flex-direction: column;
@@ -1310,6 +1456,18 @@ tbody tr:last-child td {
 
 .helper-text {
   color: var(--muted);
+}
+
+.import-template {
+  font-size: 0.76rem;
+  background: rgba(240, 248, 248, 0.7);
+  border: 1px solid rgba(15, 143, 159, 0.12);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--brand-deep);
+  line-height: 1.6;
 }
 
 .field-error {
@@ -1467,7 +1625,7 @@ tbody tr:last-child td {
     justify-content: flex-start;
   }
 
-  .dashboard-hero,
+  .app-nav-hero-row,
   .dashboard-actions {
     flex-direction: column;
     align-items: stretch;
@@ -1524,7 +1682,7 @@ tbody tr:last-child td {
     flex-direction: row;
   }
 
-  .dashboard-hero,
+  .app-nav-shell,
   .dashboard-panel,
   .dashboard-profile-card,
   .metric-card {

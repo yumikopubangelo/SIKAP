@@ -42,6 +42,9 @@ instance/
 .env.local
 .env.*.local
 hardware/esp8266_rfid/config.h
+client_secret_*.apps.googleusercontent.com.json
+*gmail_token*.json
+backend/instance/gmail_token.json
 
 # IDE
 .vscode/
