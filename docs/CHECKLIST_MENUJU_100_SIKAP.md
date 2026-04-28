@@ -81,17 +81,17 @@ Backend dan frontend dapat dianggap `100%` bila memenuhi kondisi berikut:
 
 ### B1. Selesaikan flow utama per role
 
-- [ ] Admin dapat:
+- [X] Admin dapat:
   login, lihat dashboard, kelola user, scan RFID siswa, atur waktu sholat, buka monitoring, generate laporan.
-- [ ] Kepsek dapat:
+- [X] Kepsek dapat:
   login, lihat dashboard sekolah, lihat data sekolah, monitoring, generate laporan.
-- [ ] Wali kelas dapat:
+- [X] Wali kelas dapat:
   login, lihat dashboard kelas, lihat rekap, generate laporan kelas/siswa, lihat surat peringatan.
-- [ ] Guru piket dapat:
+- [X] Guru piket dapat:
   login, lihat dashboard, input absensi manual, lihat jadwal piket.
-- [ ] Siswa dapat:
+- [X] Siswa dapat:
   login, lihat dashboard pribadi, notifikasi, surat peringatan bila ada.
-- [ ] Orang tua dapat:
+- [X] Orang tua dapat:
   login, lihat data anak, notifikasi, surat peringatan.
 
 ### B2. Rapikan fitur yang masih membatasi usability

@@ -80,6 +80,51 @@ def test_admin_can_update_waktu_sholat(client, app):
     assert body["waktu_selesai"] == "12:35:00"
 
 
+def test_authenticated_user_can_get_waktu_sholat_status(client, app):
+    with app.app_context():
+        seed_users_and_waktu()
+        db.session.add(
+            WaktuSholat(
+                nama_sholat="Ashar",
+                waktu_adzan=time(15, 0, 0),
+                waktu_iqamah=time(15, 10, 0),
+                waktu_selesai=time(15, 30, 0),
+            )
+        )
+        db.session.commit()
+
+    token = login(client, "guru_waktu", "guru12345")
+    response = client.get(
+        "/api/v1/waktu-sholat/status?timestamp=2026-04-28T12:05:00",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()["data"]
+    assert body["timestamp_source"] == "query_timestamp"
+    assert body["is_active"] is True
+    assert body["active_prayer"]["nama_sholat"] == "Dzuhur"
+    assert body["active_prayer"]["phase"] == "menuju_iqamah"
+    assert body["next_prayer"]["nama_sholat"] == "Ashar"
+
+
+def test_waktu_sholat_status_converts_utc_timestamp_to_app_timezone(client, app):
+    with app.app_context():
+        seed_users_and_waktu()
+
+    token = login(client, "guru_waktu", "guru12345")
+    response = client.get(
+        "/api/v1/waktu-sholat/status?timestamp=2026-04-28T05:05:00Z",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()["data"]
+    assert body["reference_timestamp"] == "2026-04-28T12:05:00"
+    assert body["is_active"] is True
+    assert body["active_prayer"]["nama_sholat"] == "Dzuhur"
+
+
 def test_non_admin_cannot_update_waktu_sholat(client, app):
     with app.app_context():
         waktu = seed_users_and_waktu()

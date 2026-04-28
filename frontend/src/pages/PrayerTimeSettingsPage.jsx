@@ -2,11 +2,32 @@ import { useEffect, useState } from 'react'
 
 import { AppShell } from '../components/Common'
 
+const dateTimeFormatter = new Intl.DateTimeFormat('id-ID', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+})
+
+function formatDateTime(value) {
+  if (!value) {
+    return '-'
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return value
+  }
+
+  return dateTimeFormatter.format(parsed)
+}
+
 export default function PrayerTimeSettingsPage({ authUser, api, getAuthHeaders, onBackToDashboard, onLogout }) {
   const [times, setTimes] = useState([])
+  const [prayerStatus, setPrayerStatus] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [statusLoading, setStatusLoading] = useState(true)
   const [savingId, setSavingId] = useState(null)
   const [error, setError] = useState('')
+  const [statusError, setStatusError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
 
   const fetchPrayerTimes = async () => {
@@ -43,8 +64,59 @@ export default function PrayerTimeSettingsPage({ authUser, api, getAuthHeaders, 
     }
   }
 
+  const fetchPrayerStatus = async ({ silent = false } = {}) => {
+    const headers = getAuthHeaders()
+    if (!headers) {
+      if (!silent) {
+        setStatusError('Sesi login tidak ditemukan. Silakan login ulang.')
+        setStatusLoading(false)
+      }
+      return
+    }
+
+    if (!silent) {
+      setStatusLoading(true)
+    }
+
+    try {
+      const { data } = await api.get('/waktu-sholat/status', {
+        headers,
+        params: {
+          timestamp: new Date().toISOString(),
+        },
+      })
+      if (!data?.success || !data?.data) {
+        throw new Error('Respons status waktu sholat tidak valid.')
+      }
+
+      setPrayerStatus(data.data)
+      setStatusError('')
+    } catch (requestError) {
+      const apiMessage =
+        requestError?.response?.data?.message ||
+        requestError?.message ||
+        'Gagal memuat status waktu sholat.'
+      if (!silent) {
+        setStatusError(apiMessage)
+      }
+    } finally {
+      if (!silent) {
+        setStatusLoading(false)
+      }
+    }
+  }
+
   useEffect(() => {
     void fetchPrayerTimes()
+    void fetchPrayerStatus()
+
+    const timer = window.setInterval(() => {
+      void fetchPrayerStatus({ silent: true })
+    }, 30_000)
+
+    return () => {
+      window.clearInterval(timer)
+    }
   }, [])
 
   const handleTimeChange = (id, field, value) => {
@@ -122,6 +194,74 @@ export default function PrayerTimeSettingsPage({ authUser, api, getAuthHeaders, 
     >
       {error ? <p className="alert error">{error}</p> : null}
       {successMessage ? <p className="alert success">{successMessage}</p> : null}
+
+      <section className="dashboard-panel">
+        <div className="panel-header">
+          <div>
+            <h2>Status Waktu Sholat Saat Ini</h2>
+            <p className="api-note">
+              Indikator ini refresh otomatis tiap 30 detik untuk membantu debugging sesi aktif backend.
+            </p>
+          </div>
+        </div>
+
+        {statusError ? <p className="alert error">{statusError}</p> : null}
+
+        {statusLoading ? (
+          <div className="empty-state compact">
+            <p>Memuat status waktu sholat...</p>
+          </div>
+        ) : prayerStatus ? (
+          <div className="settings-grid">
+            <article className="setting-card">
+              <div className="setting-card-head">
+                <h2>{prayerStatus.is_active ? 'Sesi Aktif' : 'Belum Ada Sesi Aktif'}</h2>
+                <span className={`status-chip ${prayerStatus.is_active ? 'prayer' : 'info'}`}>
+                  {prayerStatus.is_active ? 'Aktif' : 'Menunggu'}
+                </span>
+              </div>
+              <p>
+                {prayerStatus.is_active
+                  ? `${prayerStatus.active_prayer?.nama_sholat || 'Sesi'} sedang berlangsung.`
+                  : 'Belum masuk ke rentang waktu sholat aktif.'}
+              </p>
+              <p className="api-note">
+                Waktu acuan: {formatDateTime(prayerStatus.reference_timestamp)}
+              </p>
+              {prayerStatus.active_prayer ? (
+                <p className="api-note">
+                  Fase: {prayerStatus.active_prayer.phase === 'menuju_iqamah' ? 'sebelum iqamah' : 'setelah iqamah'}.
+                  Sesi berakhir pukul {(prayerStatus.active_prayer.waktu_selesai || '').slice(0, 5)}.
+                </p>
+              ) : null}
+            </article>
+
+            <article className="setting-card">
+              <div className="setting-card-head">
+                <h2>Jadwal Berikutnya</h2>
+                <span className="status-chip info">Selanjutnya</span>
+              </div>
+              {prayerStatus.next_prayer ? (
+                <>
+                  <p>
+                    {prayerStatus.next_prayer.nama_sholat} mulai pukul{' '}
+                    {(prayerStatus.next_prayer.waktu_adzan || '').slice(0, 5)}.
+                  </p>
+                  <p className="api-note">
+                    Referensi tanggal: {prayerStatus.next_prayer.reference_date || '-'}
+                  </p>
+                </>
+              ) : (
+                <p className="api-note">Belum ada jadwal berikutnya yang bisa ditampilkan.</p>
+              )}
+            </article>
+          </div>
+        ) : (
+          <div className="empty-state compact">
+            <p>Status waktu sholat belum tersedia.</p>
+          </div>
+        )}
+      </section>
 
       <section className="dashboard-panel">
         <div className="panel-header">
