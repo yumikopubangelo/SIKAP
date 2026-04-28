@@ -6,7 +6,7 @@ from ..models.notifikasi import Notifikasi
 from ..utils.response import success_response, error_response
 
 
-notifikasi_bp = Blueprint('notifikasi', __name__, url_prefix='/api/notifikasi')
+notifikasi_bp = Blueprint("notifikasi", __name__, url_prefix="/api/v1/notifikasi")
 
 
 @notifikasi_bp.post('/send')
@@ -33,7 +33,11 @@ def send_notifikasi():
         db.session.add(notifikasi)
         db.session.commit()
 
-        return success_response("Notifikasi berhasil dikirim", notifikasi.to_dict(), 201)
+        return success_response(
+            data=notifikasi.to_dict(),
+            message="Notifikasi berhasil dikirim",
+            status_code=201,
+        )
 
     except Exception as e:
         db.session.rollback()
@@ -60,14 +64,17 @@ def get_notifikasi():
 
         unread_count = Notifikasi.get_unread_count(current_user_id)
 
-        return success_response("Berhasil mendapatkan notifikasi", {
-            'notifikasi': [n.to_dict() for n in paginated.items],
-            'unread_count': unread_count,
-            'total': paginated.total,
-            'page': paginated.page,
-            'per_page': paginated.per_page,
-            'total_pages': paginated.pages
-        })
+        return success_response(
+            data={
+                'notifikasi': [n.to_dict() for n in paginated.items],
+                'unread_count': unread_count,
+                'total': paginated.total,
+                'page': paginated.page,
+                'per_page': paginated.per_page,
+                'total_pages': paginated.pages
+            },
+            message="Berhasil mendapatkan notifikasi",
+        )
 
     except Exception as e:
         return error_response(f"Gagal mendapatkan notifikasi: {str(e)}", 500)
@@ -88,7 +95,10 @@ def mark_as_read(id_notifikasi):
         notifikasi.mark_as_read()
         db.session.commit()
 
-        return success_response("Notifikasi berhasil ditandai sebagai dibaca", notifikasi.to_dict())
+        return success_response(
+            data=notifikasi.to_dict(),
+            message="Notifikasi berhasil ditandai sebagai dibaca",
+        )
 
     except Exception as e:
         db.session.rollback()
@@ -110,9 +120,12 @@ def mark_all_as_read():
 
         db.session.commit()
 
-        return success_response("Semua notifikasi berhasil ditandai sebagai dibaca", {
-            'marked_count': Notifikasi.get_unread_count(current_user_id)
-        })
+        return success_response(
+            data={
+                'marked_count': Notifikasi.get_unread_count(current_user_id)
+            },
+            message="Semua notifikasi berhasil ditandai sebagai dibaca",
+        )
 
     except Exception as e:
         db.session.rollback()

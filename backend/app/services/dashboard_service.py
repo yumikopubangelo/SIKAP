@@ -498,7 +498,15 @@ def _siswa_payload(student: Siswa | None) -> dict:
 
 
 def _orangtua_payload(current_user: User) -> dict:
-    student = Siswa.query.options(joinedload(Siswa.kelas)).filter_by(no_telp_ortu=current_user.no_telp).first()
+    parent_relation = getattr(current_user, "orangtua_profile", None)
+    if parent_relation is not None:
+        student = Siswa.query.options(joinedload(Siswa.kelas)).filter_by(id_siswa=parent_relation.id_siswa).first()
+    else:
+        student = (
+            Siswa.query.options(joinedload(Siswa.kelas)).filter_by(no_telp_ortu=current_user.no_telp).first()
+            if current_user.no_telp
+            else None
+        )
     payload = _siswa_payload(student)
     payload["student"] = {
         "id_siswa": student.id_siswa,

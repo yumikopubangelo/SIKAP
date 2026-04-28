@@ -3,6 +3,7 @@ from datetime import datetime
 
 from flask import Blueprint, request, send_file
 
+from ..extensions import db
 from ..middleware.auth_middleware import inject_current_user
 from ..services.laporan_service import REPORT_DIR, generate_laporan
 from ..utils.response import error_response, success_response
@@ -71,7 +72,7 @@ def generate(current_user):
 def download(current_user, id_laporan):
     from ..models import Laporan
 
-    laporan = Laporan.query.get(id_laporan)
+    laporan = db.session.get(Laporan, id_laporan)
     if not laporan:
         return error_response("Laporan tidak ditemukan.", 404)
 

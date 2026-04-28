@@ -8,6 +8,7 @@ from sqlalchemy.orm import joinedload
 from ..extensions import db
 from ..models import Absensi, AuditLog, Perangkat, SesiSholat, Siswa, WaktuSholat
 from ..security import RfidSecurityError, verify_rfid_signature
+from .sp_service import issue_surat_peringatan_for_student
 
 
 class AbsensiServiceError(Exception):
@@ -380,7 +381,12 @@ def create_manual_absensi(payload: dict, current_user) -> tuple[dict, int]:
         .filter_by(id_absensi=absensi.id_absensi)
         .first()
     )
-    return serialize_absensi(persisted, include_audit=True), audit_log.id_log
+    data = serialize_absensi(persisted, include_audit=True)
+    data["surat_peringatan_baru"] = issue_surat_peringatan_for_student(
+        student_id=persisted.id_siswa,
+        actor_id=current_user.id_user,
+    )
+    return data, audit_log.id_log
 
 
 def update_absensi(absensi_id: int, payload: dict, current_user) -> tuple[dict, int]:
@@ -421,7 +427,12 @@ def update_absensi(absensi_id: int, payload: dict, current_user) -> tuple[dict, 
         .filter_by(id_absensi=absensi.id_absensi)
         .first()
     )
-    return serialize_absensi(refreshed, include_audit=True), audit_log.id_log
+    data = serialize_absensi(refreshed, include_audit=True)
+    data["surat_peringatan_baru"] = issue_surat_peringatan_for_student(
+        student_id=refreshed.id_siswa,
+        actor_id=current_user.id_user,
+    )
+    return data, audit_log.id_log
 
 
 def _empty_scoped_absensi_query():

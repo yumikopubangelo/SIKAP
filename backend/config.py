@@ -1,5 +1,6 @@
 import os
 from datetime import timedelta
+from pathlib import Path
 
 
 def _get_bool(name: str, default: bool = False) -> bool:
@@ -24,6 +25,22 @@ def _get_csv(name: str, default: str = ""):
     if value.strip() == "*":
         return "*"
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _get_int_list(name: str, default: str) -> tuple[int, ...]:
+    raw_value = os.getenv(name, default)
+    values: list[int] = []
+    for item in raw_value.split(","):
+        chunk = item.strip()
+        if not chunk:
+            continue
+        try:
+            number = int(chunk)
+        except ValueError:
+            continue
+        if number > 0:
+            values.append(number)
+    return tuple(values)
 
 
 def _parse_key_map(value: str) -> dict[str, str]:
@@ -63,6 +80,18 @@ def _build_database_uri() -> str:
     return f"mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
 
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def _default_gmail_client_secret_path() -> str | None:
+    repo_root = _repo_root()
+    matches = sorted(repo_root.glob("client_secret_*.apps.googleusercontent.com.json"))
+    if not matches:
+        return None
+    return str(matches[0])
+
+
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-jwt-secret-key")
@@ -86,6 +115,22 @@ class Config:
     RFID_SIGNATURE_TOLERANCE_SECONDS = _get_int("RFID_SIGNATURE_TOLERANCE_SECONDS", 120)
     RFID_PUBLIC_KEY_DIR = os.getenv("RFID_PUBLIC_KEY_DIR", "/app/keys/rfid_public")
     SECURITY_ENABLE_HSTS = _get_bool("SECURITY_ENABLE_HSTS", False)
+    SP_AUTO_ENABLED = _get_bool("SP_AUTO_ENABLED", True)
+    SP_CONSECUTIVE_ALPHA_THRESHOLDS = _get_int_list("SP_CONSECUTIVE_ALPHA_THRESHOLDS", "3,6,9")
+    SP_EMAIL_ENABLED = _get_bool("SP_EMAIL_ENABLED", True)
+    GMAIL_CLIENT_SECRET_PATH = os.getenv(
+        "GMAIL_CLIENT_SECRET_PATH",
+        _default_gmail_client_secret_path() or "",
+    ) or None
+    GMAIL_TOKEN_PATH = os.getenv(
+        "GMAIL_TOKEN_PATH",
+        str(Path(__file__).resolve().parent / "instance" / "gmail_token.json"),
+    )
+    GMAIL_OAUTH_REDIRECT_URI = os.getenv(
+        "GMAIL_OAUTH_REDIRECT_URI",
+        "http://127.0.0.1:8765/oauth2callback",
+    )
+    GMAIL_SENDER_EMAIL = os.getenv("GMAIL_SENDER_EMAIL") or None
 
 
 class DevelopmentConfig(Config):

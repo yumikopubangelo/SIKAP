@@ -67,7 +67,7 @@ def resolve_izin(izin_id: int, action: str, catatan: str, current_user) -> dict:
     if current_user.role != "wali_kelas" and current_user.role != "kepsek":
         raise IzinServiceError("Hanya Wali Kelas/Kepsek yang dapat memproses izin.", 403)
 
-    izin = IzinPengajuan.query.get(izin_id)
+    izin = db.session.get(IzinPengajuan, izin_id)
     if not izin:
         raise IzinServiceError("Pengajuan izin tidak ditemukan.", 404)
         
