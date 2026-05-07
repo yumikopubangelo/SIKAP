@@ -1,4 +1,4 @@
-# 🕌 SIKAP
+# SIKAP
 ### Sistem Informasi Kepatuhan Absensi Peserta Didik
 
 > Sistem absensi sholat otomatis berbasis RFID & IoT untuk SMK Bina Putra Nusantara
@@ -11,7 +11,7 @@
 
 ---
 
-## 📚 Tentang Proyek
+## Tentang Proyek
 
 **SIKAP** adalah sistem informasi yang mencatat kehadiran ibadah sholat siswa secara otomatis menggunakan kartu RFID. Siswa cukup tap kartu saat masuk masjid — sistem langsung mencatat, merekap, dan mengirim laporan ke wali kelas maupun orang tua secara real-time.
 
@@ -23,7 +23,7 @@
 | **Prodi** | Sistem Informasi — Universitas Siliwangi |
 | **Kelompok** | 1 |
 
-### 👥 Tim Pengembang
+### Tim Pengembang
 
 | No | Nama | NIM | Role |
 |----|------|-----|------|
@@ -34,20 +34,20 @@
 
 ---
 
-## ✨ Fitur Utama
+## Fitur Utama
 
 | Fitur | Deskripsi |
 |-------|-----------|
-| 🔖 **Absensi RFID Otomatis** | Tap kartu → sistem catat waktu, tentukan status (tepat waktu / terlambat / alpha) |
-| 📊 **Dashboard Multi-Role** | 6 dashboard berbeda: Admin, Kepsek, Wali Kelas, Guru Piket, Siswa, Orang Tua |
-| 📄 **Laporan PDF/Excel** | Generate rekap kehadiran per siswa / kelas / sekolah otomatis |
-| 🔔 **Notifikasi Surat Peringatan** | SP1/SP2/SP3 otomatis dikirim ke orang tua jika alpha melebihi threshold |
-| ✏️ **Manual Input** | Guru Piket bisa input manual jika kartu hilang atau rusak |
-| 📱 **Real-time Monitoring** | Status perangkat ESP8266 dan absensi update secara real-time |
+| **Absensi RFID Otomatis** | Tap kartu -> sistem catat waktu, tentukan status (tepat waktu / terlambat / alpha) |
+| **Dashboard Multi-Role** | 6 dashboard berbeda: Admin, Kepsek, Wali Kelas, Guru Piket, Siswa, Orang Tua |
+| **Laporan PDF/Excel** | Generate rekap kehadiran per siswa / kelas / sekolah otomatis |
+| **Notifikasi Surat Peringatan** | SP1/SP2/SP3 otomatis dikirim ke orang tua jika alpha melebihi threshold |
+| **Manual Input** | Guru Piket bisa input manual jika kartu hilang atau rusak |
+| **Real-time Monitoring** | Status perangkat ESP8266 dan absensi update secara real-time |
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Frontend
 | Library | Versi | Fungsi |
@@ -80,119 +80,119 @@
 
 ---
 
-## 📁 Struktur Folder
+## Struktur Folder
 
 ```
 sikap/
-│
-├── 📄 README.md                         ← File ini
-├── 📄 .gitignore
-├── 📄 .env.example                      ← Template environment variables
-│
-├── 📁 docs/                             ← Semua dokumentasi projek
-│   ├── 01-requirements/
-│   │   ├── SRS.md
-│   │   └── user-stories.md
-│   ├── 02-design/
-│   │   ├── ERD.png / ERD.drawio
-│   │   ├── class-diagram.png
-│   │   ├── use-case-diagram.png
-│   │   ├── sequence-diagrams/           ← SD-01 sampai SD-07
-│   │   ├── activity-diagrams/           ← P001 sampai P003
-│   │   ├── architecture-diagram.png
-│   │   └── API_Specification.yaml       ← OpenAPI 3.0 (30 endpoints)
-│   ├── 03-mockups/
-│   │   ├── low-fidelity/                ← Wireframe F001–F027
-│   │   └── high-fidelity/               ← Final mockup F001–F027
-│   ├── 04-database/
-│   │   └── struktur-tabel.md
-│   └── 05-final-report/
-│       └── Laporan_Akhir_SIKAP.docx
-│
-├── 📁 backend/                          ← Flask API Server
-│   ├── run.py                           ← Entry point: python run.py
-│   ├── config.py
-│   ├── requirements.txt
-│   ├── .env                             ← JANGAN di-commit ke Git!
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── extensions.py
-│   │   ├── models/                      ← 18 tabel SQLAlchemy
-│   │   ├── routes/                      ← 30 API endpoints
-│   │   ├── services/                    ← Business logic
-│   │   ├── middleware/                  ← JWT & Role validation
-│   │   └── utils/
-│   ├── migrations/
-│   └── static/generated/               ← File PDF/Excel hasil generate
-│
-├── 📁 frontend/                         ← React App
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── index.html
-│   ├── public/
-│   └── src/
-│       ├── main.jsx
-│       ├── App.jsx
-│       ├── pages/                       ← F001–F027 (dibagi per role)
-│       │   ├── general/                 ← Splash, Home, Login
-│       │   ├── admin/                   ← Dashboard, User Mgmt, Data Master
-│       │   ├── kepsek/                  ← Dashboard, Rekap Sekolah, Laporan
-│       │   ├── wali-kelas/              ← Dashboard, Rekap Kelas, Edit Absensi
-│       │   ├── guru-piket/              ← Dashboard, Manual Input
-│       │   ├── siswa/                   ← Dashboard, Riwayat
-│       │   ├── orangtua/                ← Dashboard, Riwayat Anak, Notif SP
-│       │   └── shared/                  ← Notifikasi, Reset PW, Profil
-│       ├── components/
-│       │   ├── layout/                  ← Navbar, Sidebar, DashboardLayout
-│       │   ├── common/                  ← SummaryCard, StatusBadge, ConfirmDialog
-│       │   ├── tables/                  ← DataTable, RekapTable
-│       │   ├── charts/                  ← TrendLineChart, StatusPieChart
-│       │   └── forms/                   ← SearchFilter, DateRangePicker
-│       ├── services/                    ← Axios API calls
-│       ├── context/                     ← AuthContext, NotifikasiContext
-│       ├── hooks/                       ← useAuth, useNotifikasi, useDebounce
-│       └── utils/                       ← formatDate, roleRedirect
-│
-├── 📁 hardware/                         ← ESP8266 + RFID firmware
-│   └── esp8266_rfid/
-│       ├── esp8266_rfid.ino
-│       ├── config.h.example             ← Copy jadi config.h lalu isi
-│       └── README.md
-│
-├── 📁 database/                         ← SQL scripts
-│   ├── schema.sql                       ← CREATE TABLE 18 tabel
-│   ├── seed.sql                         ← Data awal
-│   └── migrations/
-│
-├── 📁 tests/                            ← Semua file testing
-│   ├── backend/
-│   │   ├── conftest.py                  ← Pytest fixtures
-│   │   ├── unit/                        ← Test per fungsi/service
-│   │   │   ├── test_auth_service.py
-│   │   │   ├── test_absensi_service.py
-│   │   │   └── test_sp_service.py
-│   │   └── integration/                 ← Test API endpoint
-│   │       ├── test_auth_routes.py
-│   │       ├── test_absensi_routes.py
-│   │       └── test_laporan_routes.py
-│   ├── frontend/
-│   │   └── components/
-│   │       ├── Login.test.jsx
-│   │       └── StatusBadge.test.jsx
-│   └── docs/
-│       ├── test-plan.md                 ← Rencana & strategi testing
-│       ├── test-cases.md                ← Tabel TC-001 sampai TC-0XX
-│       └── uat-results.md               ← Hasil UAT dengan stakeholder SMK
-│
-└── 📁 scripts/                          ← Script utilitas
-    ├── sync_siswa.py                    ← Import data siswa dari Excel
-    ├── generate_sp.py                   ← Trigger generate SP manual
-    └── backup_db.sh                     ← Backup database MySQL
+|
++-- README.md                         <- File ini
++-- .gitignore
++-- .env.example                      <- Template environment variables
+|
++-- docs/                             <- Semua dokumentasi projek
+|   +-- 01-requirements/
+|   |   +-- SRS.md
+|   |   \-- user-stories.md
+|   +-- 02-design/
+|   |   +-- ERD.png / ERD.drawio
+|   |   +-- class-diagram.png
+|   |   +-- use-case-diagram.png
+|   |   +-- sequence-diagrams/        <- SD-01 sampai SD-07
+|   |   +-- activity-diagrams/        <- P001 sampai P003
+|   |   +-- architecture-diagram.png
+|   |   \-- API_Specification.yaml    <- OpenAPI 3.0 (30 endpoints)
+|   +-- 03-mockups/
+|   |   +-- low-fidelity/             <- Wireframe F001-F027
+|   |   \-- high-fidelity/            <- Final mockup F001-F027
+|   +-- 04-database/
+|   |   \-- struktur-tabel.md
+|   \-- 05-final-report/
+|       \-- Laporan_Akhir_SIKAP.docx
+|
++-- backend/                          <- Flask API Server
+|   +-- run.py                        <- Entry point: python run.py
+|   +-- config.py
+|   +-- requirements.txt
+|   +-- .env                          <- JANGAN di-commit ke Git!
+|   +-- app/
+|   |   +-- __init__.py
+|   |   +-- extensions.py
+|   |   +-- models/                   <- 18 tabel SQLAlchemy
+|   |   +-- routes/                   <- 30 API endpoints
+|   |   +-- services/                 <- Business logic
+|   |   +-- middleware/               <- JWT & Role validation
+|   |   \-- utils/
+|   +-- migrations/
+|   \-- static/generated/             <- File PDF/Excel hasil generate
+|
++-- frontend/                         <- React App
+|   +-- package.json
+|   +-- vite.config.js
+|   +-- index.html
+|   +-- public/
+|   \-- src/
+|       +-- main.jsx
+|       +-- App.jsx
+|       +-- pages/                    <- F001-F027 (dibagi per role)
+|       |   +-- general/              <- Splash, Home, Login
+|       |   +-- admin/                <- Dashboard, User Mgmt, Data Master
+|       |   +-- kepsek/               <- Dashboard, Rekap Sekolah, Laporan
+|       |   +-- wali-kelas/           <- Dashboard, Rekap Kelas, Edit Absensi
+|       |   +-- guru-piket/           <- Dashboard, Manual Input
+|       |   +-- siswa/                <- Dashboard, Riwayat
+|       |   +-- orangtua/             <- Dashboard, Riwayat Anak, Notif SP
+|       |   \-- shared/               <- Notifikasi, Reset PW, Profil
+|       +-- components/
+|       |   +-- layout/               <- Navbar, Sidebar, DashboardLayout
+|       |   +-- common/               <- SummaryCard, StatusBadge, ConfirmDialog
+|       |   +-- tables/               <- DataTable, RekapTable
+|       |   +-- charts/               <- TrendLineChart, StatusPieChart
+|       |   \-- forms/                <- SearchFilter, DateRangePicker
+|       +-- services/                 <- Axios API calls
+|       +-- context/                  <- AuthContext, NotifikasiContext
+|       +-- hooks/                    <- useAuth, useNotifikasi, useDebounce
+|       \-- utils/                    <- formatDate, roleRedirect
+|
++-- hardware/                         <- ESP8266 + RFID firmware
+|   \-- esp8266_rfid/
+|       +-- esp8266_rfid.ino
+|       +-- config.h.example          <- Copy jadi config.h lalu isi
+|       \-- README.md
+|
++-- database/                         <- SQL scripts
+|   +-- schema.sql                    <- CREATE TABLE 18 tabel
+|   +-- seed.sql                      <- Data awal
+|   \-- migrations/
+|
++-- tests/                            <- Semua file testing
+|   +-- backend/
+|   |   +-- conftest.py               <- Pytest fixtures
+|   |   +-- unit/                     <- Test per fungsi/service
+|   |   |   +-- test_auth_service.py
+|   |   |   +-- test_absensi_service.py
+|   |   |   \-- test_sp_service.py
+|   |   \-- integration/              <- Test API endpoint
+|   |       +-- test_auth_routes.py
+|   |       +-- test_absensi_routes.py
+|   |       \-- test_laporan_routes.py
+|   +-- frontend/
+|   |   \-- components/
+|   |       +-- Login.test.jsx
+|   |       \-- StatusBadge.test.jsx
+|   \-- docs/
+|       +-- test-plan.md              <- Rencana & strategi testing
+|       +-- test-cases.md             <- Tabel TC-001 sampai TC-0XX
+|       \-- uat-results.md            <- Hasil UAT dengan stakeholder SMK
+|
+\-- scripts/                          <- Script utilitas
+    +-- sync_siswa.py                 <- Import data siswa dari Excel
+    +-- generate_sp.py                <- Trigger generate SP manual
+    \-- backup_db.sh                  <- Backup database MySQL
 ```
 
 ---
 
-## 🧪 Kenapa Ada Folder `tests/` Terpisah?
+## Kenapa Ada Folder `tests/` Terpisah?
 
 Folder `tests/` di root dipilih supaya semua file testing terkumpul di satu tempat dan mudah diconfigure untuk CI/CD. Isinya dibagi menjadi tiga bagian:
 
@@ -208,21 +208,21 @@ Target coverage: **>80% untuk backend**, test manual untuk 5 skenario UAT utama 
 
 ---
 
-## 🗺️ Metodologi: Lean + Rapid Prototyping
+## Metodologi: Lean + Rapid Prototyping
 
 ```
-Week 1      Inception         → Definisi MVP, setup Git & tools
-Week 2–3    Iterasi 1         → Low-fidelity prototype + demo ke dosen
-Week 4–5    Iterasi 2         → High-fidelity prototype + demo ke SMK
-Week 6–7    Sprint 1 (MVP)    → Login, RFID tap, 6 Dashboard ← demo aplikasi nyata!
-Week 8–9    Sprint 2          → Laporan, Notifikasi, User Management
-Week 10–11  Refine            → Polish UI, Unit Test, UAT
-Week 12     Deployment        → Production, Pelatihan Guru, Laporan Akhir
+Week 1      Inception         -> Definisi MVP, setup Git & tools
+Week 2-3    Iterasi 1         -> Low-fidelity prototype + demo ke dosen
+Week 4-5    Iterasi 2         -> High-fidelity prototype + demo ke SMK
+Week 6-7    Sprint 1 (MVP)    -> Login, RFID tap, 6 Dashboard <- demo aplikasi nyata!
+Week 8-9    Sprint 2          -> Laporan, Notifikasi, User Management
+Week 10-11  Refine            -> Polish UI, Unit Test, UAT
+Week 12     Deployment        -> Production, Pelatihan Guru, Laporan Akhir
 ```
 
 ---
 
-## 🚀 Cara Menjalankan Projek
+## Cara Menjalankan Projek
 
 ### Prasyarat
 
@@ -309,7 +309,7 @@ npm run test
 
 ---
 
-## 🔑 Akun Default (Setelah Seed)
+## Akun Default (Setelah Seed)
 
 | Role | Username | Password |
 |------|----------|----------|
@@ -320,11 +320,11 @@ npm run test
 | Siswa (contoh) | `siswa001` | `siswa123` |
 | Orang Tua (contoh) | `ortu001` | `ortu123` |
 
-> ⚠️ **Ganti semua password default sebelum deploy ke production!**
+> **Ganti semua password default sebelum deploy ke production!**
 
 ---
 
-## 🔌 API Quick Reference
+## API Quick Reference
 
 Base URL: `http://localhost:5000/api/v1`
 
@@ -341,12 +341,12 @@ Base URL: `http://localhost:5000/api/v1`
 | `POST` | `/laporan/generate` | Generate PDF/Excel |
 | `GET` | `/notifikasi` | List notifikasi user |
 
-📄 Spec lengkap: `docs/02-design/API_Specification.yaml`  
-🌐 Swagger UI (saat server jalan): `http://localhost:5000/api-docs`
+Spec lengkap: `docs/02-design/API_Specification.yaml`
+Swagger UI (saat server jalan): `http://localhost:5000/api-docs`
 
 ---
 
-## 🔐 Keamanan
+## Keamanan
 
 - **JWT Authentication** — Token expire 24 jam
 - **Role-Based Access Control** — 6 role, permission berbeda-beda
@@ -357,29 +357,27 @@ Base URL: `http://localhost:5000/api/v1`
 
 ---
 
-## 📊 Progress
+## Progress
 
 | Sprint | Target | Status |
 |--------|--------|--------|
-| Week 1: Inception | Definisi MVP, setup Git | ✅ Selesai |
-| Week 2–3: Iterasi 1 | Low-fi prototype | ✅ Selesai |
-| Week 4–5: Iterasi 2 | High-fi prototype + API Spec | ✅ Selesai |
-| Week 6–7: Sprint 1 | MVP (Login, RFID, Dashboard BE) | ✅ Selesai (Backend Selesai) |
-| Week 8–9: Sprint 2 | Laporan, Notifikasi, User Mgmt BE | ✅ Selesai (Backend Selesai) |
-| Week 10–11: Refine | Testing, UAT, Polishing Bug API | 🔄 Sedang Berjalan |
-| Week 12: Deployment | Production + Pelatihan | ⏳ Belum Mulai |
+| Week 1: Inception | Definisi MVP, setup Git | Selesai |
+| Week 2-3: Iterasi 1 | Low-fi prototype | Selesai |
+| Week 4-5: Iterasi 2 | High-fi prototype + API Spec | Selesai |
+| Week 6-7: Sprint 1 | MVP (Login, RFID, Dashboard BE) | Selesai (Backend Selesai) |
+| Week 8-9: Sprint 2 | Laporan, Notifikasi, User Mgmt BE | Selesai (Backend Selesai) |
+| Week 10-11: Refine | Testing, UAT, Polishing Bug API | Sedang Berjalan |
+| Week 12: Deployment | Production + Pelatihan | Belum Mulai |
 
 ---
 
-## 📞 Kontak
+## Kontak
 
 **Dosen Pengampu:** Erna Haerani, S.T., M.Kom. — `[email dosen]`
 
 **Tim Pengembang:** `[Nama 1]` · `[Nama 2]` · `[Nama 3]` · `[Nama 4]`
 
 ---
-
-
 
 SMK Bina Putra Nusantara · Universitas Siliwangi — Program Studi Sistem Informasi
 
